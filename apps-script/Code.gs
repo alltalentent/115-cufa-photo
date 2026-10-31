@@ -1,29 +1,28 @@
-/**
- * CUFA PHOTO CONTROL — Stage 2: Apps Script hosted UI connectivity.
- * Safe diagnostic only: no student records and no spreadsheet writes.
+/** CUFA PHOTO CONTROL — rebuild-3, read-only Sheets integration.
+ * No writes. Uses existing spreadsheet-bound Apps Script and ADMIN_PASSWORD script property.
  */
-const CUFA_API_VERSION = 'rebuild-2';
-function json_(value) {
-  return ContentService.createTextOutput(JSON.stringify(value))
-    .setMimeType(ContentService.MimeType.JSON);
+const CUFA_VERSION='rebuild-3';
+const CUFA_TABS={people:'拍攝學生名單',schedule:'拍攝流程',tasks:'ShootTasks',checkins:'CheckIns',live:'LiveControl'};
+function doGet(){return HtmlService.createHtmlOutputFromFile('Index').setTitle('CUFA PHOTO CONTROL')}
+function ping(){return {ok:true,version:CUFA_VERSION,status:'script-run-online'}}
+function requireAdmin_(password){
+ const expected=PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD');
+ if(!expected)throw new Error('尚未設定 ADMIN_PASSWORD 指令碼屬性');
+ if(typeof password!=='string'||password!==expected)throw new Error('管理密碼錯誤');
 }
-function doGet(e) {
-  if (e && e.parameter && e.parameter.format === 'json') {
-    return json_({ok:true,app:'CUFA PHOTO CONTROL',version:CUFA_API_VERSION,status:'backend-online'});
-  }
-  return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('CUFA PHOTO CONTROL｜連線測試');
+function tableRead_(name){
+ const sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+ if(!sheet)throw new Error('找不到工作表：'+name);
+ const values=sheet.getDataRange().getDisplayValues();
+ const header=values.shift()||[];
+ return values.filter(row=>row.some(v=>v!=='')).map(row=>Object.fromEntries(header.map((h,i)=>[h,row[i]||''])));
 }
-function ping() {
-  return {ok:true,app:'CUFA PHOTO CONTROL',version:CUFA_API_VERSION,
-    status:'script-run-online',message:'Apps Script UI and backend connected'};
-}
-function doPost(e) {
-  try {
-    const body=JSON.parse(e && e.postData && e.postData.contents || '{}');
-    if(body.action !== 'ping') throw new Error('Only ping enabled during diagnostic');
-    return json_({ok:true,action:'ping',version:CUFA_API_VERSION});
-  } catch(error) {
-    return json_({ok:false,error:String(error.message || error)});
-  }
+function getDashboard(password){
+ requireAdmin_(password);
+ const people=tableRead_(CUFA_TABS.people);
+ const tasks=tableRead_(CUFA_TABS.tasks);
+ const schedule=tableRead_(CUFA_TABS.schedule);
+ const checkins=tableRead_(CUFA_TABS.checkins);
+ const live=tableRead_(CUFA_TABS.live);
+ return {version:CUFA_VERSION,people,tasks,schedule,checkins,live};
 }
