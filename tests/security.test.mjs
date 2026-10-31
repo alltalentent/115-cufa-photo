@@ -14,4 +14,5 @@ test('Public static code contains no student data or secret',()=>{assert.doesNot
 test('Deployment only publishes frontend files',()=>{assert.match(workflow,/cp index\.html config\.js public\//)});
 
 
-test('Front end uses the uniform-style direct Apps Script endpoint',()=>{assert.match(frontend,/CUFA_CONFIG\?\.appsScriptUrl/);assert.doesNotMatch(frontend,/CUFA_CONFIG\?\.proxyUrl/)});
+test('Frontend embeds latest confirmed Apps Script endpoint',()=>{assert.match(frontend,/AKfycbypwBfQXgB4eUmfK2qBmlKjYHvcr1V7m822Q8kf6G3AGwsSu0q5m3BbQDONAzrDTl0Z/);assert.doesNotMatch(frontend,/CUFA_CONFIG\?\.proxyUrl/)});
+test('Apps Script needs only Code.gs',()=>{assert.doesNotMatch(backend,/HtmlService|createHtmlOutputFromFile/);assert.match(backend,/function doGet\(\)/);assert.match(backend,/SpreadsheetApp\.openById/)});
