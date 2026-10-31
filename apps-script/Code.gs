@@ -222,13 +222,24 @@ function apiDispatch_(actor,body) {
   } finally {lock.releaseLock();}
 }
 function doPost(e) {
+  let result;
+  let requestId='';
   try {
-    if (!e || !e.postData || e.postData.type.indexOf('text/plain')!==0) throw new Error('Invalid content type');
-    const body=JSON.parse(e.postData.contents);
+    if (!e || !e.parameter || !e.parameter.payload) throw new Error('Missing form payload');
+    const body=JSON.parse(e.parameter.payload);
+    requestId=String(body.requestId||'').slice(0,120);
     const actor=apiUser_(body.password);
-    const result=body.action==='checkAdminPassword'?{authenticated:true}:apiDispatch_(actor,body);
-    return ContentService.createTextOutput(JSON.stringify({ok:true,data:result})).setMimeType(ContentService.MimeType.JSON);
+    const data=body.action==='checkAdminPassword'?{authenticated:true}:apiDispatch_(actor,body);
+    result={ok:true,data};
   } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err.message||err)})).setMimeType(ContentService.MimeType.JSON);
+    result={ok:false,error:String(err.message||err)};
   }
+  // A form-targeted iframe can communicate across origins using postMessage.
+  // Unlike fetch(), it does not depend on Google Apps Script CORS headers.
+  const encoded=Utilities.base64EncodeWebSafe(JSON.stringify({requestId,result}));
+  const html='<!doctype html><html><head><meta charset="utf-8"></head><body><script>'+
+    'parent.postMessage({source:"cufa-apps-script",encoded:"'+encoded+'"},'+
+    '"https://alltalentent.github.io");<\\/script></body></html>';
+  return HtmlService.createHtmlOutput(html)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
