@@ -7,7 +7,7 @@ const workflow=readFileSync(new URL('../.github/workflows/pages.yml',import.meta
 const config=readFileSync(new URL('../config.js',import.meta.url),'utf8');
 test('frontend does not embed spreadsheet identifier',()=>assert.doesNotMatch(frontend,/1nq1d8fEzDIfY4othTMXa79tsXy6OsICzjAlN5-K9UEQ/));
 test('frontend targets Apps Script POST API',()=>{assert.match(frontend,/fetch\(cfg\.appsScriptUrl/);assert.match(frontend,/text\/plain;charset=utf-8/);});
-test('frontend reports connection failures',()=>assert.match(frontend,/Apps Script 連線失敗/));
+test('frontend reports connection failures',()=>assert.match(frontend,/Apps Script 回應逾時/));
 test('backend implements POST handler and JSON response',()=>{assert.match(backend,/function doPost\(e\)/);assert.match(backend,/ContentService\.MimeType\.JSON/);});
 test('call action does not update slate',()=>{const branch=backend.slice(backend.indexOf("if (action==='call'||action==='start')"),backend.indexOf("if (action==='finish')"));assert.match(branch,/if \(action==='call'\) apiLive_\('calledPersonId'/);assert.match(branch,/else \{apiLive_\('slatePersonId'/);});
 test('Pages workflow publishes only public directory',()=>{assert.match(workflow,/path: public/);assert.doesNotMatch(workflow,/path: \\./);});
