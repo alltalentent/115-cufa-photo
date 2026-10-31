@@ -1,29 +1,19 @@
-# CUFA PHOTO CONTROL｜正式部署指南
+# CUFA PHOTO CONTROL｜GitHub + Apps Script + Google Sheets
 
-## 架構
-GitHub Pages (完整 UI) → Cloudflare Worker (CORS proxy) → Apps Script JSON API → Google Sheets。
+## 架構（對照系服平台）
+GitHub Pages `index.html` → 瀏覽器直接 JSON POST `fetch` → Apps Script `doPost` → Google Sheets。
 
-本次新加 Worker 的原因：Google Apps Script ContentService 使用 302 redirect 到 script.googleusercontent.com，瀏覽器端跨網域 fetch 在某些環境無法完成。Worker 以伺服器對伺服器方式跟隨 redirect，然後回應 GitHub Pages 前端。
+不需要 Cloudflare、iframe 或 Apps Script HTML 工作介面。
 
-## 第一步：部署免費 Cloudflare Worker
-1. 建立或登入 https://dash.cloudflare.com/ 。
-2. 開啟 Workers & Pages → Create → Worker，建立 Worker。免費方案可用，依帳戶方案及配額為準。
-3. 使用 Edit code，把 GitHub 的 `worker/proxy.js` **完整貼入**並儲存、部署。
-4. 複製 Cloudflare 提供的 `https://<name>.<subdomain>.workers.dev` 網址。
+## 已知問題
+同系服一樣的前端 fetch 寫法，在拍攝系統仍可能遇到 `Failed to fetch`。此錯誤不能單憑瀏覽器訊息判定原因。最值得優先對照：
+1. 兩個 Apps Script 部署的「執行身分」與「誰可以存取」是否相同。
+2. Apps Script 部署擁有者的 Google Workspace 管理員是否限制匿名存取。
+3. `/exec` 是否為**最新版本**、是否為目前仍有效的部署網址。
+4. 在 Network 檢查 POST 後的 HTTP status、location、CORS 訊息；若 Apps Script 執行記錄完全沒有請求，表示在抵達 doPost 前就失敗。
 
-## 第二步：提供 Worker 網址
-將該 `workers.dev` 網址貼給 ChatGPT，我會直接更新 GitHub 的 `config.js` 中 `proxyUrl`，不需再更動前端其它檔案。
+## 更新後端
+將 `apps-script/Code.gs` 貼至與資料庫綁定的 Apps Script 專案；設定 Script Properties `ADMIN_PASSWORD`；更新網頁應用部署（執行身分為擁有者、使用者可存取依單位允許的公開設定），並確認前端 `config.js` 指向該 /exec。
 
-## Apps Script
-- 原 `apps-script/Code.gs` 必須已部署含 `doPost` 的最新版本。
-- 執行身分：我。存取：任何人。
-- `ADMIN_PASSWORD` 只設在 Apps Script Script Properties，絕不放到 GitHub。
-- 由於 Google Workspace 網域政策，即使選了「任何人」，也可能無法匿名存取；若 Worker 回報 HTML/非 JSON，就需要處理 Apps Script 部署或網域權限。
-
-## 安全與保護
-- 公開 GitHub、Cloudflare Worker 程式中不含密碼與學生個資。
-- Worker 限制網頁 Origin，但 Origin/CORS **不是**身份驗證；真正資料操作均在 Apps Script 後端驗證密碼。
-- 不支援匿名資料 API。
-- 對管理密碼建議加上 Cloudflare Rate Limiting/Turnstile 等措施，正式處理個資前應審查權限、傳輸與稽核設計。
-- 請勿將 `ADMIN_PASSWORD` 提供給聊天或提交 GitHub。
-- Google API 如果在傳回 302 時已完成寫入而後續回應失敗，**不要盲目重試同一個寫入操作**，應先重新整理資料檢查。
+## 注意
+公開 GitHub 不能放密碼或學生資料。正式使用前務必確認匿名 Web App 是否允許，若不能允許，不得透過公開憑證繞過校方政策。每次操作在 Apps Script 伺服器驗證密碼。
