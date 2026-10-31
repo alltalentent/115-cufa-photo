@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const frontend=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+const backend=readFileSync(new URL('../backend/server.js',import.meta.url),'utf8');
+const workflow=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
+test('frontend never embeds the real spreadsheet identifier',()=>assert.doesNotMatch(frontend,/1nq1d8fEzDIfY4othTMXa79tsXy6OsICzjAlN5-K9UEQ/));
+test('frontend requires login before fetching',()=>assert.match(frontend,/if\(!state\.token\)throw Error/));
+test('backend verifies Google ID token audience',()=>assert.match(backend,/verifyIdToken\(\{idToken:token,audience:process\.env\.GOOGLE_CLIENT_ID\}\)/));
+test('backend enforces staff allowlist',()=>assert.match(backend,/Staff access required/));
+test('call action does not update slate',()=>{const branch=backend.slice(backend.indexOf("if(action==='call'||action==='start')"),backend.indexOf("if(action==='finish')"));assert.match(branch,/action==='call'/);assert.match(branch,/slatePersonId/);});
+test('Pages workflow publishes only public directory',()=>{assert.match(workflow,/path: public/);assert.doesNotMatch(workflow,/path: \./);});
+test('private student data is not committed into static configuration',()=>{const config=readFileSync(new URL('../config.js',import.meta.url),'utf8');assert.doesNotMatch(config,/steven870103|1nq1d8fEzDIfY4othTMXa79tsXy6OsICzjAlN5-K9UEQ/);});
