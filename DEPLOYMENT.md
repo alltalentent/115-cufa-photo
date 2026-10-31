@@ -1,23 +1,29 @@
-# CUFA PHOTO CONTROL｜部署（系服同款架構）
+# CUFA PHOTO CONTROL｜正式部署指南
 
-## 已完成
-- GitHub Pages：完整前端 `index.html` + `config.js`。
-- Google Apps Script：`apps-script/Code.gs`，用 `doPost` 提供 JSON API。
-- Google Sheets：沿用原資料表，不需重新匯入。
+## 架構
+GitHub Pages (完整 UI) → Cloudflare Worker (CORS proxy) → Apps Script JSON API → Google Sheets。
 
-## Apps Script（唯一需要人工更新的後端）
-1. 在**原有綁定 Google Sheets 的 Apps Script 專案**中，以 GitHub `apps-script/Code.gs` 全文取代 `Code.gs`。
-2. 在「專案設定 → 指令碼屬性」設定 `ADMIN_PASSWORD` 為獨立強密碼（請勿放進 GitHub）。
-3. 「部署 → 管理部署作業 → 編輯」建立新版本，執行身分選「我」，誰可以存取選「任何人」，更新正式 /exec 部署。
-4. `config.js` 已設定既有 /exec 網址。若 Google 配發新網址，必須一併更新。
-5. 由 https://alltalentent.github.io/115-cufa-photo/ 進入完整工作介面，不再透過 Apps Script HTML 頁面。
+本次新加 Worker 的原因：Google Apps Script ContentService 使用 302 redirect 到 script.googleusercontent.com，瀏覽器端跨網域 fetch 在某些環境無法完成。Worker 以伺服器對伺服器方式跟隨 redirect，然後回應 GitHub Pages 前端。
 
-## 連線方式
-前端：`fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action, password, ...}) })`
-後端：`doPost(e)` → `ContentService.createTextOutput(JSON.stringify(...)).setMimeType(ContentService.MimeType.JSON)`。
+## 第一步：部署免費 Cloudflare Worker
+1. 建立或登入 https://dash.cloudflare.com/ 。
+2. 開啟 Workers & Pages → Create → Worker，建立 Worker。免費方案可用，依帳戶方案及配額為準。
+3. 使用 Edit code，把 GitHub 的 `worker/proxy.js` **完整貼入**並儲存、部署。
+4. 複製 Cloudflare 提供的 `https://<name>.<subdomain>.workers.dev` 網址。
 
-## 注意
-- 正式讀取與寫入依靠 Apps Script 以擁有者身分存取 Google Sheets。所有 API 動作需密碼。
-- 這是完整程式部署，並不代表已在使用者帳號/正式瀏覽器上驗證通訊與每個操作。
-- 不要在公開 GitHub 儲存學生個資或管理密碼。
-- 若前端仍顯示 Failed to fetch，必須確認 Apps Script /exec 的匿名可用性、Google 跳轉與 CORS；系服同款程式碼不能保證不同 Apps Script 部署自動通過跨來源限制。
+## 第二步：提供 Worker 網址
+將該 `workers.dev` 網址貼給 ChatGPT，我會直接更新 GitHub 的 `config.js` 中 `proxyUrl`，不需再更動前端其它檔案。
+
+## Apps Script
+- 原 `apps-script/Code.gs` 必須已部署含 `doPost` 的最新版本。
+- 執行身分：我。存取：任何人。
+- `ADMIN_PASSWORD` 只設在 Apps Script Script Properties，絕不放到 GitHub。
+- 由於 Google Workspace 網域政策，即使選了「任何人」，也可能無法匿名存取；若 Worker 回報 HTML/非 JSON，就需要處理 Apps Script 部署或網域權限。
+
+## 安全與保護
+- 公開 GitHub、Cloudflare Worker 程式中不含密碼與學生個資。
+- Worker 限制網頁 Origin，但 Origin/CORS **不是**身份驗證；真正資料操作均在 Apps Script 後端驗證密碼。
+- 不支援匿名資料 API。
+- 對管理密碼建議加上 Cloudflare Rate Limiting/Turnstile 等措施，正式處理個資前應審查權限、傳輸與稽核設計。
+- 請勿將 `ADMIN_PASSWORD` 提供給聊天或提交 GitHub。
+- Google API 如果在傳回 302 時已完成寫入而後續回應失敗，**不要盲目重試同一個寫入操作**，應先重新整理資料檢查。
