@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+  <title>系服管理後台</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      margin: 0;
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        "Noto Sans TC",
+        "PingFang TC",
+        "Microsoft JhengHei",
+        sans-serif;
+      background: #f5f6f8;
+      color: #222;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      -webkit-appearance: none;
+      appearance: none;
+      touch-action: manipulation;
+    }
+
+    .container {
+      width: min(100%, 1280px);
+      margin: 0 auto;
+      padding: 28px 18px 48px;
+    }
+
+    h1 {
+      margin: 0 0 22px;
+      font-size: 28px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 3px 16px rgba(0,0,0,.06);
+    }
+
+    .login-wrap {
+      width: min(100%, 430px);
+      margin: 10vh auto 0;
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    input,
+    select {
+      width: 100%;
+      height: 48px;
+      padding: 0 13px;
+      border: 1px solid #d7dbe0;
+      border-radius: 9px;
+      background: #fff;
+      outline: none;
+    }
+
+    .btn {
+      min-height: 48px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 9px;
+      background: #111;
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .btn.secondary {
+      background: #e9ebee;
+      color: #222;
+    }
+
+    .btn.danger {
+      background: #b42318;
+    }
+
+    .btn.success {
+      background: #157347;
+    }
+
+    .btn:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
+    .login-btn {
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .error {
+      margin-top: 12px;
+      color: #b42318;
+      font-weight: 700;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .registration-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .registration-status {
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: #f7f8f9;
+      border-radius: 11px;
+      padding: 14px;
+    }
+
+    .stat-label {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .stat-value {
+      margin-top: 4px;
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .mini-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .mini-table th,
+    .mini-table td {
+      padding: 9px 8px;
+      border-bottom: 1px solid #eceef0;
+      text-align: left;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns:
+        2fr 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+    }
+
+    th,
+    td {
+      padding: 10px 9px;
+      border-bottom: 1px solid #eceef0;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f7f8f9;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eef0f2;
+      font-size: 13px;
+    }
+
+    .checkbox {
+      width: 22px;
+      height: 22px;
+      accent-color: #111;
+      cursor: pointer;
+    }
+
+    .muted {
+      color: #888;
+    }
+
+    .top-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .stats-grid {
+        grid-template-columns:
+          repeat(2, minmax(0, 1fr));
+      }
+
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+
+      .filters {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 18px 12px 34px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stat-value {
+        font-size: 21px;
+      }
+
+      .filters {
+        grid-template-columns: 1fr;
+      }
+
+      .registration-row {
+        align-items: stretch;
+      }
+
+      .registration-row .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div
+    id="loginPage"
+    class="container"
+  >
+    <div class="login-wrap">
+      <div class="card">
+        <h1>系服管理後台</h1>
+
+        <label for="passwordInput">
+          管理密碼
+        </label>
+
+        <input
+          id="passwordInput"
+          type="password"
+          autocomplete="current-password"
+          placeholder="請輸入管理密碼"
+        >
+
+        <button
+          id="loginBtn"
+          class="btn login-btn"
+          type="button"
+        >
+          登入
+        </button>
+
+        <div
+          id="loginError"
+          class="error"
+        ></div>
+      </div>
+    </div>
+  </div>
+
+
+  <main
+    id="adminPage"
+    class="container hidden"
+  >
+
+    <div class="top-actions">
+      <h1>系服管理後台</h1>
+
+      <button
+        id="logoutBtn"
+        class="btn secondary"
+        type="button"
+      >
+        登出
+      </button>
+    </div>
+
+
+    <section class="card">
+      <div class="registration-row">
+
+        <div class="registration-status">
+          登記狀態：
+          <span id="registrationStatus">
+            --
+          </span>
+        </div>
+
+        <button
+          id="registrationBtn"
+          class="btn"
+          type="button"
+        >
+          --
+        </button>
+
+      </div>
+    </section>
+
+
+    <section class="card">
+      <h2 class="section-title">
+        統計概況
+      </h2>
+
+      <div
+        id="statsGrid"
+        class="stats-grid"
+      ></div>
+    </section>
+
+
+    <div class="two-col">
+
+      <section class="card">
+        <h2 class="section-title">
+          尺寸統計
+        </h2>
+
+        <div id="sizeStats"></div>
+      </section>
+
+
+      <section class="card">
+        <h2 class="section-title">
+          班級訂購統計
+        </h2>
+
+        <div id="classStats"></div>
+      </section>
+
+    </div>
+
+
+    <section class="card">
+
+      <h2 class="section-title">
+        學生資料
+      </h2>
+
+
+      <div class="filters">
+
+        <input
+          id="searchInput"
+          type="text"
+          placeholder="搜尋學號、姓名、班級"
+        >
+
+        <select id="classFilter">
+          <option value="">全部班級</option>
+        </select>
+
+        <select id="sourceFilter">
+          <option value="">全部來源</option>
+          <option value="新生名單">
+            新生名單
+          </option>
+          <option value="其他年級加購">
+            其他年級加購
+          </option>
+        </select>
+
+        <select id="statusFilter">
+          <option value="">全部狀態</option>
+          <option value="registered">
+            已登記
+          </option>
+          <option value="unregistered">
+            未登記
+          </option>
+          <option value="paid">
+            已繳費
+          </option>
+          <option value="unpaid">
+            未繳費
+          </option>
+          <option value="received">
+            已領取
+          </option>
+          <option value="unreceived">
+            未領取
+          </option>
+        </select>
+
+      </div>
+
+
+      <div class="table-wrap">
+
+        <table>
+          <thead>
+            <tr>
+              <th>學號</th>
+              <th>班級</th>
+              <th>姓名</th>
+              <th>來源</th>
+              <th>尺寸</th>
+              <th>登記時間</th>
+              <th>已繳費</th>
+              <th>繳費時間</th>
+              <th>已領取</th>
+              <th>領取時間</th>
+            </tr>
+          </thead>
+
+          <tbody id="studentTableBody">
+          </tbody>
+        </table>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <script>
+
+    const API_URL =
+      'https://script.google.com/macros/s/AKfycby2mbLVPRt51qYD12ibSuXWsD8idyPTiWqHVbH9Iz2Hdlhdwj8PwcIAH_AgTBC5xXc/exec';
+
+
+    let adminPassword = '';
+    let dashboard = null;
+    let dashboardLoading = false;
+
+
+    const loginPage =
+      document.getElementById(
+        'loginPage'
+      );
+
+    const adminPage =
+      document.getElementById(
+        'adminPage'
+      );
+
+    const passwordInput =
+      document.getElementById(
+        'passwordInput'
+      );
+
+    const loginBtn =
+      document.getElementById(
+        'loginBtn'
+      );
+
+    const loginError =
+      document.getElementById(
+        'loginError'
+      );
+
+    const logoutBtn =
+      document.getElementById(
+        'logoutBtn'
+      );
+
+    const registrationStatus =
+      document.getElementById(
+        'registrationStatus'
+      );
+
+    const registrationBtn =
+      document.getElementById(
+        'registrationBtn'
+      );
+
+    const statsGrid =
+      document.getElementById(
+        'statsGrid'
+      );
+
+    const sizeStats =
+      document.getElementById(
+        'sizeStats'
+      );
+
+    const classStats =
+      document.getElementById(
+        'classStats'
+      );
+
+    const searchInput =
+      document.getElementById(
+        'searchInput'
+      );
+
+    const classFilter =
+      document.getElementById(
+        'classFilter'
+      );
+
+    const sourceFilter =
+      document.getElementById(
+        'sourceFilter'
+      );
+
+    const statusFilter =
+      document.getElementById(
+        'statusFilter'
+      );
+
+    const studentTableBody =
+      document.getElementById(
+        'studentTableBody'
+      );
+
+
+    async function api(
+      action,
+      data = {}
+    ) {
+      const response =
+        await fetch(
+          API_URL,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':
+                'text/plain;charset=utf-8'
+            },
+            body:
+              JSON.stringify({
+                action: action,
+                ...data
+              })
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          '系統連線失敗'
+        );
+      }
+
+      const text =
+        await response.text();
+
+      try {
+        return JSON.parse(
+          text
+        );
+      }
+      catch (error) {
+        console.error(
+          text
+        );
+
+        throw new Error(
+          '系統回傳格式錯誤'
+        );
+      }
+    }
+
+
+    function escapeHtml(value) {
+      return String(
+        value ?? ''
+      )
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+
+    function formatMoney(value) {
+      return 'NT$' +
+        Number(
+          value || 0
+        ).toLocaleString(
+          'zh-TW'
+        );
+    }
+
+
+    async function login() {
+      const password =
+        String(
+          passwordInput.value || ''
+        );
+
+      if (!password) {
+        loginError.textContent =
+          '請輸入管理密碼';
+
+        return;
+      }
+
+      loginBtn.disabled =
+        true;
+
+      loginBtn.textContent =
+        '登入中...';
+
+      loginError.textContent =
+        '';
+
+      try {
+        const result =
+          await api(
+            'checkAdminPassword',
+            {
+              password:
+                password
+            }
+          );
+
+        if (!result.success) {
+          throw new Error(
+            result.message ||
+            '登入失敗'
+          );
+        }
+
+        adminPassword =
+          password;
+
+        loginPage
+          .classList
+          .add('hidden');
+
+        adminPage
+          .classList
+          .remove('hidden');
+
+        await loadDashboard();
+
+      }
+      catch (error) {
+        loginError.textContent =
+          error.message ||
+          '登入失敗';
+      }
+      finally {
+        loginBtn.disabled =
+          false;
+
+        loginBtn.textContent =
+          '登入';
+      }
+    }
+
+
+    function logout() {
+      adminPassword = '';
+      dashboard = null;
+
+      passwordInput.value = '';
+
+      adminPage
+        .classList
+        .add('hidden');
+
+      loginPage
+        .classList
+        .remove('hidden');
+    }
+
+
+    async function loadDashboard() {
+      if (
+        !adminPassword ||
+        dashboardLoading
+      ) {
+        return;
+      }
+
+      dashboardLoading =
+        true;
+
+      try {
+        const result =
+          await api(
+            'getDashboard',
+            {
+              password:
+                adminPassword
+            }
+          );
+
+        if (!result.success) {
+          throw new Error(
+            result.message ||
+            '讀取失敗'
+          );
+        }
+
+        dashboard =
+          result;
+
+        renderDashboard();
+
+      }
+      catch (error) {
+        console.error(
+          error
+        );
+      }
+      finally {
+        dashboardLoading =
+          false;
+      }
+    }
+
+
+    function renderDashboard() {
+      if (!dashboard) {
+        return;
+      }
+
+      renderRegistration();
+      renderStats();
+      renderSizeStats();
+      renderClassStats();
+      renderClassFilter();
+      renderStudents();
+    }
+
+
+    function renderRegistration() {
+      const open =
+        dashboard.registrationOpen
+        === true;
+
+      registrationStatus.textContent =
+        open
+        ? '開放中'
+        : '已截止';
+
+      registrationBtn.textContent =
+        open
+        ? '關閉登記'
+        : '重新開放';
+
+      registrationBtn.className =
+        open
+        ? 'btn danger'
+        : 'btn success';
+    }
+
+
+    function renderStats() {
+      const s =
+        dashboard.stats;
+
+      const items = [
+        ['新生總人數', s.freshmanTotal],
+        ['新生已登記', s.freshmanRegistered],
+        ['新生未登記', s.freshmanUnregistered],
+        ['新生登記率', s.freshmanRate + '%'],
+        ['其他年級加購', s.otherYearCount],
+        ['總訂購件數', s.totalOrders],
+        ['應收總額', formatMoney(s.expectedTotal)],
+        ['已收金額', formatMoney(s.paidAmount)],
+        ['未繳費', s.unpaidCount],
+        ['未領取', s.unreceivedCount]
+      ];
+
+      statsGrid.innerHTML =
+        items.map(
+          function(item) {
+            return (
+              '<div class="stat-card">' +
+                '<div class="stat-label">' +
+                  escapeHtml(item[0]) +
+                '</div>' +
+                '<div class="stat-value">' +
+                  escapeHtml(item[1]) +
+                '</div>' +
+              '</div>'
+            );
+          }
+        ).join('');
+    }
+
+
+    function renderSizeStats() {
+      const stats =
+        dashboard.sizeStats || {};
+
+      const order = [
+        'S',
+        'M',
+        'L',
+        'XL',
+        '2XL',
+        '3XL',
+        '4XL'
+      ];
+
+      sizeStats.innerHTML =
+        '<table class="mini-table">' +
+          '<thead><tr>' +
+            '<th>尺寸</th>' +
+            '<th>件數</th>' +
+          '</tr></thead>' +
+          '<tbody>' +
+            order.map(
+              function(size) {
+                return (
+                  '<tr>' +
+                    '<td>' +
+                      escapeHtml(size) +
+                    '</td>' +
+                    '<td>' +
+                      escapeHtml(
+                        stats[size] || 0
+                      ) +
+                    '</td>' +
+                  '</tr>'
+                );
+              }
+            ).join('') +
+          '</tbody>' +
+        '</table>';
+    }
+
+
+    function renderClassStats() {
+      const stats =
+        dashboard.classStats || {};
+
+      const names =
+        Object.keys(
+          stats
+        );
+
+      if (!names.length) {
+        classStats.innerHTML =
+          '<div class="muted">目前沒有登記資料</div>';
+
+        return;
+      }
+
+      classStats.innerHTML =
+        '<table class="mini-table">' +
+          '<thead><tr>' +
+            '<th>班級</th>' +
+            '<th>訂購件數</th>' +
+          '</tr></thead>' +
+          '<tbody>' +
+            names.map(
+              function(name) {
+                return (
+                  '<tr>' +
+                    '<td>' +
+                      escapeHtml(name) +
+                    '</td>' +
+                    '<td>' +
+                      escapeHtml(
+                        stats[name]
+                      ) +
+                    '</td>' +
+                  '</tr>'
+                );
+              }
+            ).join('') +
+          '</tbody>' +
+        '</table>';
+    }
+
+
+    function renderClassFilter() {
+      const current =
+        classFilter.value;
+
+      const classes = [];
+
+      dashboard.students
+        .forEach(
+          function(student) {
+            if (
+              student.className &&
+              classes.indexOf(
+                student.className
+              ) === -1
+            ) {
+              classes.push(
+                student.className
+              );
+            }
+          }
+        );
+
+      classFilter.innerHTML =
+        '<option value="">全部班級</option>' +
+        classes.map(
+          function(name) {
+            return (
+              '<option value="' +
+              escapeHtml(name) +
+              '">' +
+              escapeHtml(name) +
+              '</option>'
+            );
+          }
+        ).join('');
+
+      if (
+        classes.indexOf(
+          current
+        ) !== -1
+      ) {
+        classFilter.value =
+          current;
+      }
+    }
+
+
+    function renderStudents() {
+      if (!dashboard) {
+        return;
+      }
+
+      const keyword =
+        String(
+          searchInput.value || ''
+        )
+        .trim()
+        .toLowerCase();
+
+      const classValue =
+        classFilter.value;
+
+      const sourceValue =
+        sourceFilter.value;
+
+      const statusValue =
+        statusFilter.value;
+
+      const filtered =
+        dashboard.students
+          .filter(
+            function(student) {
+
+              if (keyword) {
+                const haystack =
+                  (
+                    student.studentId +
+                    ' ' +
+                    student.name +
+                    ' ' +
+                    student.className
+                  )
+                  .toLowerCase();
+
+                if (
+                  haystack.indexOf(
+                    keyword
+                  ) === -1
+                ) {
+                  return false;
+                }
+              }
+
+              if (
+                classValue &&
+                student.className
+                !== classValue
+              ) {
+                return false;
+              }
+
+              if (
+                sourceValue &&
+                student.source
+                !== sourceValue
+              ) {
+                return false;
+              }
+
+              if (
+                statusValue ===
+                'registered' &&
+                !student.registered
+              ) {
+                return false;
+              }
+
+              if (
+                statusValue ===
+                'unregistered' &&
+                student.registered
+              ) {
+                return false;
+              }
+
+              if (
+                statusValue ===
+                'paid' &&
+                !student.paid
+              ) {
+                return false;
+              }
+
+              if (
+                statusValue ===
+                'unpaid' &&
+                (
+                  !student.registered ||
+                  student.paid
+                )
+              ) {
+                return false;
+              }
+
+              if (
+                statusValue ===
+                'received' &&
+                !student.received
+              ) {
+                return false;
+              }
+
+              if (
+                statusValue ===
+                'unreceived' &&
+                (
+                  !student.registered ||
+                  student.received
+                )
+              ) {
+                return false;
+              }
+
+              return true;
+            }
+          );
+
+      studentTableBody.innerHTML =
+        filtered.map(
+          function(student) {
+
+            const paidCell =
+              student.registered
+              ? (
+                '<input ' +
+                'class="checkbox paid-checkbox" ' +
+                'type="checkbox" ' +
+                'data-id="' +
+                escapeHtml(
+                  student.studentId
+                ) +
+                '" ' +
+                (
+                  student.paid
+                  ? 'checked'
+                  : ''
+                ) +
+                '>'
+              )
+              : '<span class="muted">—</span>';
+
+            return (
+              '<tr>' +
+
+                '<td>' +
+                  escapeHtml(
+                    student.studentId
+                  ) +
+                '</td>' +
+
+                '<td>' +
+                  escapeHtml(
+                    student.className
+                  ) +
+                '</td>' +
+
+                '<td>' +
+                  escapeHtml(
+                    student.name
+                  ) +
+                '</td>' +
+
+                '<td>' +
+                  '<span class="tag">' +
+                    escapeHtml(
+                      student.source
+                    ) +
+                  '</span>' +
+                '</td>' +
+
+                '<td>' +
+                  escapeHtml(
+                    student.size || '—'
+                  ) +
+                '</td>' +
+
+                '<td>' +
+                  escapeHtml(
+                    student.registeredAt
+                    || '—'
+                  ) +
+                '</td>' +
+
+                '<td>' +
+                  paidCell +
+                '</td>' +
+
+                '<td>' +
+                  escapeHtml(
+                    student.paidAt
+                    || '—'
+                  ) +
+                '</td>' +
+
+                '<td>' +
+                  (
+                    student.registered
+                    ? (
+                      student.received
+                      ? '是'
+                      : '否'
+                    )
+                    : '—'
+                  ) +
+                '</td>' +
+
+                '<td>' +
+                  escapeHtml(
+                    student.receivedAt
+                    || '—'
+                  ) +
+                '</td>' +
+
+              '</tr>'
+            );
+          }
+        ).join('');
+
+      document
+        .querySelectorAll(
+          '.paid-checkbox'
+        )
+        .forEach(
+          function(input) {
+            input.addEventListener(
+              'change',
+              onPaidChange
+            );
+          }
+        );
+    }
+
+
+    async function onPaidChange(
+      event
+    ) {
+      const input =
+        event.target;
+
+      const studentId =
+        input.dataset.id;
+
+      const paid =
+        input.checked;
+
+      input.disabled =
+        true;
+
+      try {
+        const result =
+          await api(
+            'togglePaid',
+            {
+              password:
+                adminPassword,
+              studentId:
+                studentId,
+              paid:
+                paid
+            }
+          );
+
+        if (!result.success) {
+          throw new Error(
+            result.message ||
+            '更新失敗'
+          );
+        }
+
+        await loadDashboard();
+
+      }
+      catch (error) {
+        input.checked =
+          !paid;
+
+        alert(
+          error.message ||
+          '更新失敗'
+        );
+      }
+      finally {
+        input.disabled =
+          false;
+      }
+    }
+
+
+    async function toggleRegistration() {
+      if (!dashboard) {
+        return;
+      }
+
+      registrationBtn.disabled =
+        true;
+
+      const newOpen =
+        !dashboard.registrationOpen;
+
+      try {
+        const result =
+          await api(
+            'setRegistrationOpen',
+            {
+              password:
+                adminPassword,
+              open:
+                newOpen
+            }
+          );
+
+        if (!result.success) {
+          throw new Error(
+            result.message ||
+            '更新失敗'
+          );
+        }
+
+        dashboard.registrationOpen =
+          result.open === true;
+
+        renderRegistration();
+
+      }
+      catch (error) {
+        alert(
+          error.message ||
+          '更新失敗'
+        );
+      }
+      finally {
+        registrationBtn.disabled =
+          false;
+      }
+    }
+
+
+    loginBtn.addEventListener(
+      'click',
+      login
+    );
+
+    passwordInput
+      .addEventListener(
+        'keydown',
+        function(event) {
+          if (
+            event.key === 'Enter'
+          ) {
+            event.preventDefault();
+            login();
+          }
+        }
+      );
+
+    logoutBtn.addEventListener(
+      'click',
+      logout
+    );
+
+    registrationBtn
+      .addEventListener(
+        'click',
+        toggleRegistration
+      );
+
+    searchInput
+      .addEventListener(
+        'input',
+        renderStudents
+      );
+
+    classFilter
+      .addEventListener(
+        'change',
+        renderStudents
+      );
+
+    sourceFilter
+      .addEventListener(
+        'change',
+        renderStudents
+      );
+
+    statusFilter
+      .addEventListener(
+        'change',
+        renderStudents
+      );
+
+
+    setInterval(
+      function() {
+        if (adminPassword) {
+          loadDashboard();
+        }
+      },
+      1000
+    );
+
+  </script>
+
+</body>
+</html>
