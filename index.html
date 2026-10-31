@@ -1,1 +1,87 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CUFA PHOTO CONTROL</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#10141c;color:#f5f7fb;min-height:100vh;margin:0;display:grid;place-items:center}main{max-width:650px;padding:32px;text-align:center}p{color:#a9b4c6;line-height:1.8}a{display:inline-block;background:#5d87ff;color:white;padding:13px 22px;border-radius:10px;text-decoration:none}</style></head><body><main><h1>CUFA PHOTO CONTROL</h1><p>GitHub Pages 前端入口｜Apps Script 工作介面｜Google Sheets 資料庫</p><p>為避免跨網域請求失敗，工作介面由 Apps Script 提供，內部使用 google.script.run 呼叫後端。</p><p><a href="https://script.google.com/macros/s/AKfycbzqx0mUeEY7igo9d5023GEP7nsEV1haaTqqSvJ233BwfqEvLwhluQGWZBOZuic1ecynCA/exec">開啟工作介面</a></p><p>目前為不存取學生資料的連線測試版。</p></main></body></html>
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CUFA PHOTO CONTROL</title><style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#10151e;color:#edf2fb;font:15px system-ui,-apple-system,sans-serif}header{padding:18px 24px;border-bottom:1px solid #2e3948;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}h1{margin:0;font-size:23px;letter-spacing:.04em}h2{font-size:18px;margin:0 0 14px}small,.muted{color:#9baac0}main{max-width:1350px;margin:auto;padding:20px}nav{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}button{font:inherit;border:1px solid #3d5066;border-radius:9px;padding:10px 13px;background:#253448;color:#f1f5fc;cursor:pointer}button.primary,.active{background:#557ef0;border-color:#557ef0;color:white}button.danger{background:#693b46}button:disabled{opacity:.45;cursor:wait}input,textarea,select{font:inherit;border-radius:8px;border:1px solid #43556c;padding:11px;background:#172333;color:white;max-width:100%}input[type=checkbox]{width:18px;height:18px}section,.panel{background:#1b2635;border:1px solid #2f3e50;border-radius:14px;padding:18px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.metric{font-size:32px;font-weight:750;margin:6px 0}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.between{justify-content:space-between}.list{display:grid;gap:9px}.person{background:#15202e;border:1px solid #354456;padding:13px;border-radius:10px}.person strong{font-size:17px}.tag{font-size:12px;background:#2c3c51;padding:4px 8px;border-radius:20px}.big{font-size:clamp(40px,7vw,95px);font-weight:800}.hidden{display:none!important}#notice{white-space:pre-wrap;color:#b5d3ff;min-height:22px}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #344354}th{color:#9cb0c9}.scroll{overflow:auto}.slate{text-align:center;padding:50px 10px}.slate h2{font-size:26px}#login{max-width:450px;margin:55px auto}#login input{width:100%;margin:12px 0} .compact{font-size:13px}@media(max-width:650px){main{padding:12px}header{padding:14px}.panel,section{padding:12px}button{padding:9px 10px}}
+</style></head><body><header><div><h1>CUFA PHOTO CONTROL</h1><small>崇右影藝科技大學｜115 學年度拍攝管理</small></div><div class="row"><span id="version" class="muted"></span><button id="refresh" class="hidden">重新整理</button><button id="logout" class="hidden">登出</button></div></header><main>
+<section id="login"><h2>管理員登入</h2><p class="muted">GitHub 操作介面｜管理密碼登入｜不需切換 Google 帳號</p><input id="password" type="password" placeholder="管理密碼" autocomplete="off"><button class="primary" id="loginBtn">登入系統</button></section>
+<div id="app" class="hidden"><nav id="nav"></nav><div id="view"></div></div><p id="notice" role="status"></p>
+</main><script src="config.js"></script><script>
+const $=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let password='',data=null,page='control',busy=false,filter='';
+const pages=[['control','總控台'],['checkin','現場報到'],['queue','叫號看板'],['slate','電子試鏡單'],['tasks','拍攝任務'],['schedule','拍攝流程']];
+function notice(s){$('notice').textContent=s||''}
+async function run(method,...args){
+ const url=window.CUFA_CONFIG?.appsScriptUrl;
+ if(!url)throw Error('找不到 API 網址設定');
+ const payload=method==='getDashboard'?{action:'getDashboard',password:args[0]}:
+               method==='apiAction'?{action:'apiAction',password:args[0],request:args[1]}:null;
+ if(!payload)throw Error('未知操作 '+method);
+ const controller=new AbortController();
+ const timeout=setTimeout(()=>controller.abort(),30000);
+ try{
+  const response=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),signal:controller.signal});
+  if(!response.ok)throw Error('連線失敗 HTTP '+response.status);
+  const raw=await response.text();
+  let result;try{result=JSON.parse(raw)}catch(e){throw Error('API 未回傳 JSON，請確認 Apps Script 部署設定')}
+  if(!result.ok)throw Error(result.error||'API 操作失敗');
+  return result.data;
+ }catch(error){
+  if(error.name==='AbortError')throw Error('API 超過 30 秒仍未回應');
+  throw error;
+ }finally{clearTimeout(timeout)}
+}
+function person(id){return data.people.find(x=>x.personId===id)}
+function tasks(id){return data.tasks.filter(x=>x.personId===id)}
+function checked(id){return data.checkins.some(x=>x.personId===id)}
+function button(label,action,id,cls='',extra=''){return '<button class="'+cls+'" data-action="'+action+'" data-id="'+esc(id)+'" '+extra+'>'+esc(label)+'</button>'}
+function personCard(p,mode){
+const ts=tasks(p.personId),status=ts.map(t=>esc(t.shootType)+' '+esc(t.status)).join('｜');
+let controls='';
+if(mode==='checkin')controls=checked(p.personId)?'<span class="tag">已報到</span>':button('確認同意並報到','checkIn',p.personId,'primary')+' '+button('標記未到','absent',p.personId);
+if(mode==='control')controls=button('叫號','call',p.personId)+button('開始拍攝','start',p.personId,'primary')+button('完成拍攝','finish',p.personId);
+if(mode==='tasks')controls=ts.map(t=>'<div class="row compact" style="margin-top:8px"><span>'+esc(t.shootType)+'</span><select data-task="'+esc(t.taskId)+'" data-person="'+esc(p.personId)+'">'+['待拍攝','準備中','拍攝中','已完成','暫緩','取消'].map(s=>'<option '+(s===t.status?'selected':'')+'>'+s+'</option>').join('')+'</select>'+button('編輯備註','note',p.personId,'','data-taskid="'+esc(t.taskId)+'"')+'</div>').join('');
+return '<div class="person"><div class="row between"><div><strong>'+esc(p.name)+'</strong> <span class="tag">'+esc(p.class)+'</span> <span class="muted">'+esc(p.studentId)+'</span><div class="muted compact">'+status+'</div></div><div class="row">'+controls+'</div></div></div>';
+}
+function render(){
+if(!data)return;
+$('version').textContent=data.version;
+$('nav').innerHTML=pages.map(([id,label])=>'<button data-page="'+id+'" class="'+(page===id?'active':'')+'">'+label+'</button>').join('');
+const total=data.people.length,arrived=data.people.filter(p=>checked(p.personId)).length,done=data.tasks.filter(t=>t.status==='已完成').length;
+const called=person(data.live.calledPersonId),active=person(data.live.activePersonId);
+let html='';
+if(page==='control'){
+html='<div class="grid">'+[['學生總數',total],['已報到',arrived],['已完成任務',done+' / '+data.tasks.length],['待完成任務',data.tasks.length-done]].map(([a,b])=>'<section><small>'+a+'</small><div class="metric">'+b+'</div></section>').join('')+'</div><section><h2>現場狀態</h2><div class="grid"><div><small>NOW CALLING</small><h2>'+esc(called?.name||'尚未叫號')+'</h2></div><div><small>NOW SHOOTING</small><h2>'+esc(active?.name||'目前無拍攝')+'</h2></div></div>'+button('清除叫號','clearCall','','')+'</section><section><h2>現場操作</h2><input id="search" placeholder="搜尋姓名、學號或班級" value="'+esc(filter)+'"><div id="cards" class="list" style="margin-top:12px"></div></section>';
+}else if(page==='checkin'){
+html='<section><h2>報到管理</h2><p class="muted">報到前須確認學生已完成資料使用及拍攝同意。重複報到會被後端阻擋。</p><input id="search" placeholder="搜尋學生" value="'+esc(filter)+'"><div id="cards" class="list" style="margin-top:12px"></div></section>';
+}else if(page==='tasks'){
+html='<section><h2>拍攝任務與備註</h2><input id="search" placeholder="搜尋學生" value="'+esc(filter)+'"><div id="cards" class="list" style="margin-top:12px"></div></section>';
+}else if(page==='queue'){
+const sorted=data.checkins.slice().sort((a,b)=>(Number(a.queueNo)||0)-(Number(b.queueNo)||0));
+html='<section class="slate"><small>NOW CALLING</small><div class="big">'+esc(called?.name||'請稍候')+'</div><h2>'+esc(called?.class||'')+'</h2></section><section><h2>報到順序</h2><div class="list">'+sorted.map(r=>{const p=person(r.personId);return p?'<div class="person"><span class="tag">#'+esc(r.queueNo)+'</span> '+esc(p.name)+' <span class="muted">'+esc(p.class)+'</span></div>':''}).join('')+'</div></section>';
+}else if(page==='slate'){
+const p=person(data.live.slatePersonId);
+html='<section class="slate"><small>電子試鏡單｜最後開始拍攝的學生</small><div class="big">'+esc(p?.name||'尚未開始拍攝')+'</div><h2>'+esc(p?.class||'')+'　'+esc(p?.studentId||'')+'</h2><p>'+esc(p?.shootTypes||'')+'</p><div class="grid">'+(p?[['身高',p.heightCm],['體重',p.weightKg]].map(([k,v])=>'<section><small>'+k+'</small><div class="metric">'+esc(v||'—')+'</div></section>').join(''):'')+'</div></section>';
+}else if(page==='schedule'){
+html='<section><h2>拍攝流程表</h2><div class="scroll"><table><thead><tr><th>開始</th><th>結束</th><th>項目</th><th>類型</th></tr></thead><tbody>'+data.schedule.map(s=>'<tr><td>'+esc(s.start)+'</td><td>'+esc(s.end)+'</td><td>'+esc(s.title)+'</td><td>'+esc(s.kind)+'</td></tr>').join('')+'</tbody></table></div></section>';
+}
+$('view').innerHTML=html;
+if(['control','checkin','tasks'].includes(page)){const search=$('search');search.addEventListener('input',e=>{filter=e.target.value;drawCards()});drawCards()}
+}
+function drawCards(){const container=$('cards');if(!container)return;const q=filter.trim().toLowerCase();container.innerHTML=data.people.filter(p=>!q||[p.name,p.studentId,p.class].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,150).map(p=>personCard(p,page)).join('')||'<p class="muted">找不到符合條件的學生</p>'}
+async function reload(){if(!password)return;data=await run('getDashboard',password);render()}
+async function login(){
+if(busy)return;const pass=$('password').value;if(!pass){notice('請輸入管理密碼');return}
+busy=true;$('loginBtn').disabled=true;notice('登入與讀取資料中…');
+try{const result=await run('getDashboard',pass);password=pass;data=result;$('password').value='';$('login').classList.add('hidden');$('app').classList.remove('hidden');$('refresh').classList.remove('hidden');$('logout').classList.remove('hidden');notice('已連線');render()}catch(e){notice('登入失敗：'+e.message)}finally{busy=false;$('loginBtn').disabled=false}
+}
+$('loginBtn').onclick=login;$('password').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+$('refresh').onclick=async()=>{try{notice('重新整理中…');await reload();notice('已更新')}catch(e){notice('更新失敗：'+e.message)}};
+$('logout').onclick=()=>{password='';data=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');$('refresh').classList.add('hidden');$('logout').classList.add('hidden');notice('已登出')};
+$('nav').onclick=e=>{const b=e.target.closest('[data-page]');if(b){page=b.dataset.page;filter='';render()}};
+$('view').addEventListener('change',async e=>{const s=e.target.closest('[data-task]');if(!s||busy)return;await perform({action:'task',personId:s.dataset.person,taskId:s.dataset.task,status:s.value})});
+$('view').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b||busy)return;const action=b.dataset.action,id=b.dataset.id;
+if(action==='note'){const t=data.tasks.find(x=>x.taskId===b.dataset.taskid);const notes=prompt('編輯拍攝備註',t?.notes||'');if(notes!==null)await perform({action:'note',personId:id,taskId:b.dataset.taskid,notes});return}
+if(action==='checkIn'&&!confirm('確認已取得學生資料使用及拍攝同意，並完成報到？'))return;
+if(['start','finish','absent'].includes(action)&&!confirm('確定執行「'+b.textContent+'」？'))return;
+await perform({action,personId:id,...(action==='checkIn'?{consentStatus:'agreed'}:{})});
+});
+async function perform(payload){busy=true;notice('處理中：'+payload.action);try{await run('apiAction',password,payload);await reload();notice('操作完成：'+payload.action)}catch(e){notice('操作失敗：'+e.message);try{await reload()}catch(_){}}finally{busy=false}}
+</script></body></html>
