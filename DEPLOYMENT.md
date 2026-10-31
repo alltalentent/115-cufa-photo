@@ -1,19 +1,27 @@
-# CUFA PHOTO CONTROL｜GitHub + Apps Script + Google Sheets
+# CUFA PHOTO CONTROL｜單檔 Apps Script + GitHub Pages
 
-## 架構（對照系服平台）
-GitHub Pages `index.html` → 瀏覽器直接 JSON POST `fetch` → Apps Script `doPost` → Google Sheets。
+## 確認採用的架構
+- **Google Sheets**：個人資料、拍攝任務及流程，保持私有。
+- **Google Apps Script**：只需要 `Code.gs`。沒有 `Index.html`，不使用 `HtmlService`。
+- **GitHub Pages**：根目錄 `index.html` 是完整拍攝控制前端。
+- API：GitHub 以 `fetch`、`POST`、`text/plain;charset=utf-8` 傳送 JSON，Apps Script 以 `doPost` 回傳 JSON。
+- `doGet` 只回傳無個資的 API 狀態 JSON，用來檢查 /exec 部署。
 
-不需要 Cloudflare、iframe 或 Apps Script HTML 工作介面。
+## Google 端設定
+1. 把 GitHub `apps-script/Code.gs` **全文**貼到 Apps Script 的 `Code.gs`。
+2. 刪除 Apps Script 內的 `Index.html`（若存在）。GitHub 根目錄 `index.html` **不得刪除**。
+3. 在 Apps Script「專案設定 → 指令碼屬性」設定：
+   - `SPREADSHEET_ID`：你要使用的 Google Sheets 網址 `/d/` 和 `/edit` 中間的一段 ID。
+   - `ADMIN_PASSWORD`：獨立強管理密碼。
+4. 將 Apps Script 以執行身分「我」、存取「任何人」發布網頁應用，重新建立**版本**或更新部署。
+5. Github `index.html` 中的 API URL 應指向部署的 /exec。現用網址：`AKfycbypwBfQXgB4eUmfK2qBmlKjYHvcr1V7m822Q8kf6G3AGwsSu0q5m3BbQDONAzrDTl0Z`。
+6. 直接開啟 /exec 的 GET 回應應為 `api-online` JSON；它**不能**證明 JSON POST/CORS 已通過。
 
-## 已知問題
-同系服一樣的前端 fetch 寫法，在拍攝系統仍可能遇到 `Failed to fetch`。此錯誤不能單憑瀏覽器訊息判定原因。最值得優先對照：
-1. 兩個 Apps Script 部署的「執行身分」與「誰可以存取」是否相同。
-2. Apps Script 部署擁有者的 Google Workspace 管理員是否限制匿名存取。
-3. `/exec` 是否為**最新版本**、是否為目前仍有效的部署網址。
-4. 在 Network 檢查 POST 後的 HTTP status、location、CORS 訊息；若 Apps Script 執行記錄完全沒有請求，表示在抵達 doPost 前就失敗。
+## 資料欄位
+使用現存工作表：`拍攝學生名單`、`拍攝流程`、`ShootTasks`、`CheckIns`、`LiveControl`、`ActivityLogs`。不要在測試時修改正式學生資料。
 
-## 更新後端
-將 `apps-script/Code.gs` 貼至與資料庫綁定的 Apps Script 專案；設定 Script Properties `ADMIN_PASSWORD`；更新網頁應用部署（執行身分為擁有者、使用者可存取依單位允許的公開設定），並確認前端 `config.js` 指向該 /exec。
-
-## 注意
-公開 GitHub 不能放密碼或學生資料。正式使用前務必確認匿名 Web App 是否允許，若不能允許，不得透過公開憑證繞過校方政策。每次操作在 Apps Script 伺服器驗證密碼。
+## 注意事項
+- 使用獨立 Apps Script 專案時，`getActiveSpreadsheet()` 可能是 `null`，因此新版優先使用設定的 `SPREADSHEET_ID` 配合 `SpreadsheetApp.openById()`，比照系服已成功系統。
+- 用 `Code.gs` 代替 Apps Script HTML 頁面只能解決 HTML 檔案依賴，**不能自行解決 CORS 或 Google 網頁應用權限問題**。
+- 系服使用者提供的 `Code.gs` 參考檔含 `doGet/HtmlService`，但無 `doPost`；不能直接替換拍攝系統後端。
+- 不要把學生個資或管理密碼提交到 GitHub。
