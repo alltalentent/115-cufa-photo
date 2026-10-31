@@ -1,1 +1,1 @@
-window.CUFA_CONFIG = Object.freeze({apiBase:'',googleClientId:''});
+window.CUFA_CONFIG = Object.freeze({appsScriptUrl:''});
