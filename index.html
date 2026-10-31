@@ -1,2 +1,20 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CUFA PHOTO CONTROL</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#10141c;color:#f5f7fb;min-height:100vh;display:grid;place-items:center;margin:0}main{max-width:580px;padding:32px;text-align:center}p{color:#a9b4c6;line-height:1.8}</style></head><body><main><h1>CUFA PHOTO CONTROL</h1><p>系統重新建置中</p><p>目前暫停所有資料讀取及寫入，待前後端重新建立並完成驗證後開放。</p></main></body></html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CUFA PHOTO CONTROL｜連線診斷</title>
+<style>body{font-family:system-ui,-apple-system,sans-serif;background:#10141c;color:#f5f7fb;margin:0;min-height:100vh;display:grid;place-items:center}main{width:min(600px,calc(100% - 48px));padding:24px}button{background:#5d87ff;color:white;border:0;border-radius:9px;padding:13px 18px;font-size:16px;cursor:pointer}pre{background:#1c2532;padding:16px;white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;line-height:1.6}small{color:#b7c3d3}</style></head>
+<body><main><h1>CUFA PHOTO CONTROL</h1><p>第一階段｜GitHub Pages ↔ Apps Script JSON 連線診斷</p><small>此頁只測試 ping，不讀取或修改任何學生資料。</small><p><button id="test">開始連線測試</button></p><pre id="result">尚未測試</pre></main>
+<script src="config.js"></script><script>
+const output=document.getElementById('result'),btn=document.getElementById('test');
+btn.addEventListener('click',async()=>{
+btn.disabled=true;output.textContent='測試中…';
+const url=window.CUFA_CONFIG?.appsScriptUrl;
+if(!url){output.textContent='錯誤：尚未設定 Apps Script /exec 網址';btn.disabled=false;return}
+try{
+const response=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'ping',message:'github-pages'}),redirect:'follow'});
+const text=await response.text();
+let data;try{data=JSON.parse(text)}catch{throw new Error('收到非 JSON 回應：'+text.slice(0,180))}
+output.textContent=JSON.stringify({httpStatus:response.status,response:data},null,2);
+}catch(e){output.textContent='連線失敗：'+e.message+'\n\n此錯誤表示瀏覽器端請求未成功完成，請回報完整訊息。'}
+finally{btn.disabled=false}
+});
+</script></body></html>
