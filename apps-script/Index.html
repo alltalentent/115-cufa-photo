@@ -1,6 +1,22 @@
-<!doctype html><html lang="zh-Hant"><head><base target="_top"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CUFA PHOTO CONTROL</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#10141c;color:#f5f7fb;margin:0}main{max-width:1050px;margin:auto;padding:24px}input,button{padding:12px;border-radius:8px;font:inherit}button{background:#638aff;color:white;border:0;cursor:pointer}input{background:#202938;color:white;border:1px solid #546070}section{background:#1b2430;padding:18px;border-radius:12px;margin:16px 0}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #394556;text-align:left}th{color:#b9c7d9}#status{white-space:pre-wrap;color:#cbd6e7}.stats{display:flex;gap:12px;flex-wrap:wrap}.stats section{min-width:125px}small{color:#a9b8cc}</style></head><body><main><h1>CUFA PHOTO CONTROL</h1><small>第三階段｜Google Sheets 唯讀總覽｜不會修改任何資料</small><section><label>管理密碼 <input id="password" type="password" autocomplete="off"></label> <button id="load">讀取資料</button><p id="status">尚未登入</p></section><div id="dashboard" hidden><div class="stats" id="stats"></div><section><h2>拍攝流程</h2><div id="schedule"></div></section><section><h2>學生名單（最多顯示 150 筆）</h2><div id="people"></div></section></div></main><script>
+<!doctype html><html lang="zh-Hant"><head><base target="_top"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CUFA PHOTO CONTROL</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#10141c;color:#f5f7fb;margin:0}main{max-width:1050px;margin:auto;padding:24px}input,button{padding:12px;border-radius:8px;font:inherit}button{background:#638aff;color:white;border:0;cursor:pointer}input{background:#202938;color:white;border:1px solid #546070}section{background:#1b2430;padding:18px;border-radius:12px;margin:16px 0}table{border-collapse:collapse;width:100%}th,td{padding:9px;border-bottom:1px solid #394556;text-align:left}th{color:#b9c7d9}#status{white-space:pre-wrap;color:#cbd6e7}.stats{display:flex;gap:12px;flex-wrap:wrap}.stats section{min-width:125px}small{color:#a9b8cc}</style></head><body><main><h1>CUFA PHOTO CONTROL</h1><small>第三階段｜Google Sheets 唯讀連線診斷｜不會修改任何資料</small><section><label>管理密碼 <input id="password" type="password" autocomplete="off"></label> <button id="load">檢查資料庫連線</button><p id="status">尚未登入</p></section><div id="dashboard" hidden><div class="stats" id="stats"></div><section><h2>拍攝流程</h2><div id="schedule"></div></section><section><h2>學生名單（最多顯示 150 筆）</h2><div id="people"></div></section></div></main><script>
 const el=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function table(rows,fields){return '<div style="overflow:auto"><table><thead><tr>'+fields.map(f=>'<th>'+esc(f[1])+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+fields.map(f=>'<td>'+esc(r[f[0]])+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'}
-el('load').onclick=()=>{const pass=el('password').value;if(!pass){el('status').textContent='請輸入管理密碼';return}el('load').disabled=true;el('status').textContent='正在讀取 Google Sheets…';google.script.run.withSuccessHandler(d=>{el('password').value='';el('status').textContent='已成功讀取 '+d.version+'（唯讀）';el('dashboard').hidden=false;el('stats').innerHTML=[['學生',d.people.length],['拍攝任務',d.tasks.length],['流程',d.schedule.length],['報到',d.checkins.length]].map(([k,v])=>'<section><small>'+k+'</small><h2>'+v+'</h2></section>').join('');el('schedule').innerHTML=table(d.schedule,[['start','開始'],['end','結束'],['title','內容'],['kind','類型']]);el('people').innerHTML=table(d.people.slice(0,150),[['studentId','學號'],['name','姓名'],['class','班級'],['checkInStatus','報到狀態']]);el('load').disabled=false}).withFailureHandler(e=>{el('status').textContent='讀取失敗：'+e.message;el('load').disabled=false}).getDashboard(pass)};
+let pending=false;
+function show(message){el('status').textContent=message}
+el('load').onclick=function(){
+ if(pending)return;
+ const password=el('password').value;
+ if(!password){show('請輸入管理密碼');return}
+ pending=true;el('load').disabled=true;show('步驟 1/2：檢查 Apps Script 與試算表…');
+ let finished=false;
+ const timer=setTimeout(function(){if(!finished){show('等待超過 20 秒：後端尚未回應。請至 Apps Script「執行項目」查看 diagnoseDashboard 的狀態。');pending=false;el('load').disabled=false}},20000);
+ function done(){if(finished)return false;finished=true;clearTimeout(timer);pending=false;el('load').disabled=false;return true}
+ google.script.run.withSuccessHandler(function(result){
+   if(!done())return;
+   if(!result){show('後端回傳空資料，請檢查部署版本');return}
+   el('password').value='';
+   show('步驟 2/2：成功連線 Google Sheets\n版本：'+result.version+'\n各表資料筆數：\n'+JSON.stringify(result.counts,null,2)+'\n\n此階段未讀取學生個資，也未寫入資料');
+ }).withFailureHandler(function(error){
+   if(done())show('讀取失敗：'+(error&&error.message||String(error)));
+ }).diagnoseDashboard(password);
+};
 </script></body></html>
