@@ -39,7 +39,8 @@ function getDashboard() {
   const people = table_(SHEETS.people).records;
   const tasks = table_(SHEETS.tasks).records;
   const live = table_(SHEETS.live).records;
-  return { people, tasks, live: Object.fromEntries(live.map(x => [x.key, x.value])) };
+  const schedule = table_(SHEETS.schedule).records;
+  return { people, tasks, schedule, live: Object.fromEntries(live.map(x => [x.key, x.value])) };
 }
 function checkIn(personId, consentStatus) {
   const a = requireStaff_();
@@ -66,6 +67,7 @@ function liveSet_(key, value) {
   if (r) {
     writeField_(t, r.__row, 'value', value);
     writeField_(t, r.__row, 'updatedAt', new Date());
+    writeField_(t, r.__row, 'operator', Session.getActiveUser().getEmail());
   } else t.sheet.appendRow([key, value, new Date(), Session.getActiveUser().getEmail()]);
 }
 function callPerson(personId) {
@@ -95,55 +97,50 @@ function completeShoot(taskId) {
   log_(a, 'COMPLETE', task.personId, { taskId });
   return { taskId, status: '已完成' };
 }
-/**
- * Non-destructive workflow simulation.
- * Reads live records but never writes to Students, tasks, live, logs or check-ins.
- * Use this before testing the real check-in workflow.
- */
-function runSafeWorkflowTest() {
+
+function changeTaskStatus(taskId, status, notes, checkedItems) {
   const a = requireStaff_();
-  const p = table_(SHEETS.people);
-  const t = table_(SHEETS.tasks);
-  const live = table_(SHEETS.live);
-  const checkins = table_(SHEETS.checkins);
-  const problems = [];
-  const personIds = new Set();
-  p.records.filter(x => x.personId).forEach(x => {
-    if (personIds.has(x.personId)) problems.push('重複 personId: ' + x.personId);
-    personIds.add(x.personId);
-  });
-  t.records.filter(x => x.taskId).forEach(x => {
-    if (!personIds.has(x.personId)) problems.push('拍攝任務找不到人員: ' + x.taskId);
-  });
-  const queueNumbers = p.records.map(x => x.queueNo).filter(Boolean);
-  if (new Set(queueNumbers).size !== queueNumbers.length) problems.push('重複報到號碼');
-  const nextNumber = 'A' + String(Math.max(0, ...queueNumbers.map(x => Number(String(x).replace(/^A/, ''))).filter(Number.isFinite)) + 1).padStart(2, '0');
-  const candidate = p.records.find(x => x.personId && !x.queueNo);
-  if (!candidate) problems.push('沒有未報到人員可供模擬');
-  const candidateTasks = candidate ? t.records.filter(x => x.personId === candidate.personId) : [];
-  if (candidate && !candidateTasks.length) problems.push('模擬人員沒有拍攝任務');
-  const requiredPeople = ['personId','name','class','queueNo','checkInStatus'];
-  const requiredTasks = ['taskId','personId','shootType','status'];
-  const requiredLive = ['key','value','updatedAt','operator'];
-  const requiredCheckins = ['personId','queueNo','checkedAt','operator','consentStatus'];
-  [[p,requiredPeople],[t,requiredTasks],[live,requiredLive],[checkins,requiredCheckins]].forEach(([table,fields]) => fields.forEach(k => {
-    if (!table.keys.includes(k)) problems.push('缺少欄位: ' + table.sheet.getName() + '.' + k);
-  }));
-  const simulated = candidate ? {
-    checkIn: { personId: candidate.personId, queueNo: nextNumber, status: '已報到' },
-    call: { calledPersonId: candidate.personId, slateUnchanged: true },
-    start: { activePersonId: candidate.personId, slatePersonId: candidate.personId },
-    complete: { taskIds: candidateTasks.map(x => x.taskId), slateRemains: candidate.personId }
-  } : null;
-  return {
-    ok: problems.length === 0, mode: 'READ_ONLY_SIMULATION', actor: a.email,
-    peopleCount: p.records.filter(x => x.personId).length,
-    taskCount: t.records.filter(x => x.taskId).length,
-    existingCheckIns: checkins.records.filter(x => x.personId).length,
-    simulated, problems,
-    note: '沒有寫入任何試算表資料，報到號碼僅為模擬預測'
-  };
+  if (!['待報到','待拍攝','拍攝中','已完成','需補拍','缺席'].includes(status)) throw new Error('Invalid status');
+  const lock = LockService.getDocumentLock(); lock.waitLock(20000);
+  try {
+    const t = table_(SHEETS.tasks), task = t.records.find(x => x.taskId === taskId);
+    if (!task) throw new Error('Task not found');
+    writeField_(t,task.__row,'status',status);
+    if (notes !== undefined) writeField_(t,task.__row,'notes',String(notes).slice(0,2000));
+    if (checkedItems !== undefined) writeField_(t,task.__row,'checkedItems',String(checkedItems).slice(0,1000));
+    log_(a,'TASK_STATUS',task.personId,{taskId,status});
+    return {taskId,status};
+  } finally {lock.releaseLock();}
 }
+function finishActiveShoot() {
+  const a=requireStaff_(), lock=LockService.getDocumentLock(); lock.waitLock(20000);
+  try {
+    liveSet_('activePersonId','');
+    log_(a,'FINISH_ACTIVE','',{});
+    return {ok:true,slateRetained:true};
+  } finally {lock.releaseLock();}
+}
+function runSafeWorkflowTest() {
+  const a=requireStaff_(), p=table_(SHEETS.people), t=table_(SHEETS.tasks);
+  const l=table_(SHEETS.live), ch=table_(SHEETS.checkins), sch=table_(SHEETS.schedule);
+  const issues=[], ids=new Set(), taskIds=new Set(), queues=new Set();
+  p.records.filter(x=>x.personId).forEach(x=>{
+    if(ids.has(x.personId))issues.push('重複人員識別碼 '+x.personId);
+    ids.add(x.personId);
+    if(x.queueNo){if(queues.has(x.queueNo))issues.push('重複叫號 '+x.queueNo);queues.add(x.queueNo);}
+  });
+  t.records.filter(x=>x.taskId).forEach(x=>{
+    if(taskIds.has(x.taskId))issues.push('重複任務識別碼 '+x.taskId);
+    taskIds.add(x.taskId);
+    if(!ids.has(x.personId))issues.push('任務無對應學生 '+x.taskId);
+  });
+  [[p,['personId','name','class','queueNo','checkInStatus']],[t,['taskId','personId','shootType','status','checkedItems','notes']],[l,['key','value','updatedAt','operator']],[ch,['personId','queueNo','checkedAt','operator','consentStatus']],[sch,['slotId','start','end','title','kind']]].forEach(([tab,fields])=>fields.forEach(k=>{if(!tab.keys.includes(k))issues.push(tab.sheet.getName()+' 缺少 '+k)}));
+  const next='A'+String(Math.max(0,...Array.from(queues).map(x=>Number(String(x).replace(/^A/,''))).filter(Number.isFinite))+1).padStart(2,'0');
+  const candidate=p.records.find(x=>x.personId&&!x.queueNo);
+  if(!candidate)issues.push('無可模擬的未報到人員');
+  return {ok:issues.length===0,mode:'READ_ONLY',people:ids.size,tasks:taskIds.size,schedule:sch.records.filter(x=>x.slotId).length,existingCheckins:ch.records.filter(x=>x.personId).length,simulated: candidate?{queue:next,checkIn:true,callDoesNotChangeSlate:true,startChangesSlate:true,completeRetainsSlate:true,taskCount:t.records.filter(x=>x.personId===candidate.personId).length}:null,issues,operator:a.email};
+}
+
 function doGet() {
   requireStaff_();
   return HtmlService.createHtmlOutputFromFile('Index').setTitle('CUFA PHOTO CONTROL');
