@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const pages=['index.html','admin.html','pickup.html'].map(p=>readFileSync(new URL('../'+p,import.meta.url),'utf8'));
 const workflow=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
-const newUrl='https://script.google.com/macros/s/AKfycbxgGaNAoP6mOkBawU4lWC9g2yP2ocFzX-dlmR3Owj8nTWos5QRU3vWSpp7G7MogPao/exec';
+const newUrl='https://script.google.com/macros/s/AKfycbwpmusQbVSPDMgXYC0_Rrzjxl9tWpgu0KrW1RTUEHwtCZqCX7V7UaTqa8cJAifo-RI/exec';
 test('uniform pages all use selected new endpoint',()=>pages.forEach(s=>assert.ok(s.includes(newUrl))));
 test('old uniform system endpoint never appears',()=>pages.forEach(s=>assert.doesNotMatch(s,/AKfycby2mbLVPRt51/)));
 test('uniform data flow is preserved',()=>pages.forEach(s=>{assert.match(s,/fetch\(/);assert.match(s,/text\/plain;charset=utf-8/);assert.match(s,/JSON\.stringify/) }));
