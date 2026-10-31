@@ -239,7 +239,7 @@ function doPost(e) {
   const encoded=Utilities.base64EncodeWebSafe(JSON.stringify({requestId,result}));
   const html='<!doctype html><html><head><meta charset="utf-8"></head><body><script>'+
     'parent.postMessage({source:"cufa-apps-script",encoded:"'+encoded+'"},'+
-    '"https://alltalentent.github.io");<\\/script></body></html>';
+    '"https://alltalentent.github.io");</script></body></html>';
   return HtmlService.createHtmlOutput(html)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
