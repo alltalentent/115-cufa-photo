@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const frontend=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const backend=readFileSync(new URL('../apps-script/Code.gs',import.meta.url),'utf8');
+const proxy=readFileSync(new URL('../worker/proxy.js',import.meta.url),'utf8');
 const config=readFileSync(new URL('../config.js',import.meta.url),'utf8');
 const workflow=readFileSync(new URL('../.github/workflows/pages.yml',import.meta.url),'utf8');
 test('GitHub serves full photo UI, not Apps Script redirect',()=>{for(const s of ['現場報到','叫號看板','電子試鏡單','拍攝流程'])assert.match(frontend,new RegExp(s));assert.doesNotMatch(frontend,/google\.script\.run|<iframe/)});
