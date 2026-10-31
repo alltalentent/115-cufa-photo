@@ -4,9 +4,9 @@
 body{font:16px system-ui,sans-serif;background:#20242a;color:#f6f4ef;margin:0}header{padding:18px 24px;border-bottom:1px solid #515a66}main{padding:20px;max-width:1200px;margin:auto}nav{display:flex;gap:8px;flex-wrap:wrap}button{background:#39434e;color:#fff;border:1px solid #697584;border-radius:8px;padding:11px;cursor:pointer}button:disabled{opacity:.4}section{padding:18px;margin-top:16px;background:#2b323a;border-radius:12px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border-bottom:1px solid #48515c}.small{color:#b8c1ca;font-size:13px}.big{font-size:clamp(34px,7vw,90px);font-weight:750}.slate{text-align:center;padding:50px 15px;background:#20242a}.error{color:#ffba9e}input{padding:12px;font:inherit;border-radius:8px;max-width:100%}
 </style></head><body>
 <header><strong>CUFA PHOTO CONTROL</strong> <span class="small">2026.11.03 · A104</span></header>
-<main><nav><button onclick="tab('control')">總控台</button><button onclick="tab('checkin')">報到區</button><button onclick="tab('queue')">叫號畫面</button><button onclick="tab('slate')">電子試鏡單</button><button onclick="load()">重新整理</button></nav><p id="message" class="small">讀取中…</p><section id="view"></section></main>
+<main><nav><button onclick="tab('control')">總控台</button><button onclick="tab('checkin')">報到區</button><button onclick="tab('queue')">叫號畫面</button><button onclick="tab('slate')">電子試鏡單</button><button onclick="tab('schedule')">拍攝流程</button><button onclick="tab('test')">安全檢查</button><button onclick="load()">重新整理</button></nav><p id="message" class="small">讀取中…</p><section id="view"></section></main>
 <script>
-let data={people:[],tasks:[],live:{}},page='control';
+let data={people:[],tasks:[],schedule:[],live:{}},page='control';
 function el(tag,text,cls){const x=document.createElement(tag);x.textContent=text;if(cls)x.className=cls;return x}
 function btn(text,fn){const x=el('button',text);x.onclick=fn;return x}
 function info(t){document.getElementById('message').textContent=t}
@@ -17,6 +17,8 @@ function tab(t){page=t;render()}
 function render(){
  const root=document.getElementById('view');root.replaceChildren();
  const people=data.people||[],tasks=data.tasks||[],live=data.live||{};
+ if(page==='test'){root.append(el('h2','安全檢查（不寫入資料）'));const output=el('pre','尚未執行');output.style.whiteSpace='pre-wrap';root.append(btn('執行完整唯讀模擬',()=>google.script.run.withSuccessHandler(x=>{output.textContent=JSON.stringify(x,null,2);info(x.ok?'檢查通過':'發現待處理問題')}).withFailureHandler(fail).runSafeWorkflowTest()),output);return;}
+ if(page==='schedule'){root.append(el('h2','拍攝流程'));(data.schedule||[]).filter(x=>x.slotId).forEach(x=>root.append(el('div',(x.start||'—')+'–'+(x.end||'—')+'  '+x.title,'row')));return;}
  if(page==='slate'){
   const p=people.find(x=>x.personId===live.slatePersonId);
   const s=el('div','', 'slate');s.append(el('div','DIGITAL SLATE · CUFA PHOTO CONTROL','small'));
@@ -30,10 +32,12 @@ function render(){
  }
  if(page==='control'){
   root.append(el('h2','總控台'),el('p','目前拍攝：'+(people.find(x=>x.personId===live.activePersonId)?.name||'尚無')));
+  root.append(btn('結束目前拍攝（保留電子試鏡單）',()=>{if(confirm('確定結束目前拍攝？'))api('finishActiveShoot',[])}));
+  root.append(el('p','已報到 '+people.filter(x=>x.queueNo).length+' / '+people.length+' ｜已完成 '+tasks.filter(x=>x.status==='已完成').length+' / '+tasks.length,'small'));
   people.filter(x=>x.queueNo).forEach(p=>{
    const row=el('div','', 'row');row.append(el('span',p.queueNo+' · '+p.name+' · '+p.shootTypes));
    const controls=el('div');controls.append(btn('叫號',()=>api('callPerson',[p.personId])),btn('開始拍攝',()=>api('startShoot',[p.personId])));
-   tasks.filter(t=>t.personId===p.personId).forEach(t=>controls.append(btn('完成 '+t.shootType,()=>api('completeShoot',[t.taskId]))));
+   tasks.filter(t=>t.personId===p.personId).forEach(t=>{const block=el('div');block.append(el('div',t.shootType+' · '+t.status,'small'));const parts=(t.checklist||'').split('／').filter(Boolean);const checked=(t.checkedItems||'').split('／').filter(Boolean);const selected=new Set(checked);parts.forEach(item=>{const label=el('label');label.style.marginRight='8px';const cb=document.createElement('input');cb.type='checkbox';cb.checked=selected.has(item);cb.onchange=()=>{if(cb.checked)selected.add(item);else selected.delete(item)};label.append(cb,document.createTextNode(item));block.append(label)});const note=el('input');note.value=t.notes||'';note.placeholder='拍攝備註';block.append(note);const actions=el('div');actions.append(btn('儲存檢查',()=>api('changeTaskStatus',[t.taskId,t.status||'待拍攝',note.value,[...selected].join('／')])),btn('完成',()=>api('changeTaskStatus',[t.taskId,'已完成',note.value,[...selected].join('／')])),btn('需補拍',()=>api('changeTaskStatus',[t.taskId,'需補拍',note.value,[...selected].join('／')])),btn('缺席',()=>api('changeTaskStatus',[t.taskId,'缺席',note.value,[...selected].join('／')])));block.append(actions);controls.append(block)});
    row.append(controls);root.append(row)
   });return;
  }
