@@ -152,19 +152,12 @@ function doGet() {
  * Requires script property GOOGLE_CLIENT_ID matching the public frontend OAuth client.
  * WARNING: Test Google Apps Script redirect/CORS behavior before production.
  */
-function apiUser_(token) {
-  if (!token || typeof token !== 'string' || token.length > 8192) throw new Error('Missing login token');
-  const clientId = PropertiesService.getScriptProperties().getProperty('GOOGLE_CLIENT_ID');
-  if (!clientId) throw new Error('OAuth client not configured');
-  const response = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token), {muteHttpExceptions:true});
-  if (response.getResponseCode() !== 200) throw new Error('Invalid Google login');
-  const claims = JSON.parse(response.getContentText());
-  if (claims.aud !== clientId || claims.email_verified !== 'true' || !claims.email) throw new Error('Untrusted Google identity');
-  const email = String(claims.email).toLowerCase();
-  const user = table_(SHEETS.users).records.find(x=>String(x.email).toLowerCase()===email && String(x.enabled).toUpperCase()==='TRUE');
-  if (!user || !['管理員','admin','staff','工作人員'].includes(user.role)) throw new Error('Staff access required');
-  return {email,role:user.role};
+function apiUser_(password) {
+  const expected=PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD');
+  if(!expected || typeof password!=='string' || !password || password!==expected) throw new Error('管理密碼錯誤');
+  return {email:'管理員',role:'admin'};
 }
+
 function apiLog_(actor,action,id,details) {
   table_(SHEETS.logs).sheet.appendRow([new Date(),actor.email,action,id||'',JSON.stringify(details||{})]);
 }
@@ -232,8 +225,8 @@ function doPost(e) {
   try {
     if (!e || !e.postData || e.postData.type.indexOf('text/plain')!==0) throw new Error('Invalid content type');
     const body=JSON.parse(e.postData.contents);
-    const actor=apiUser_(body.idToken);
-    const result=apiDispatch_(actor,body);
+    const actor=apiUser_(body.password);
+    const result=body.action==='checkAdminPassword'?{authenticated:true}:apiDispatch_(actor,body);
     return ContentService.createTextOutput(JSON.stringify({ok:true,data:result})).setMimeType(ContentService.MimeType.JSON);
   } catch(err) {
     return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err.message||err)})).setMimeType(ContentService.MimeType.JSON);
