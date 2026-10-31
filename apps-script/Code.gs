@@ -4,8 +4,8 @@
  * Never publish this as "Anyone" or "Anyone with link".
  */
 const SHEETS = {
-  people: 'Students', tasks: 'ShootTasks', checkins: 'CheckIns',
-  live: 'LiveControl', logs: 'ActivityLogs', users: 'Users'
+  people: '拍攝學生名單', tasks: 'ShootTasks', checkins: 'CheckIns',
+  live: 'LiveControl', logs: 'ActivityLogs', users: 'Users', schedule: '拍攝流程'
 };
 function table_(name) {
   const s = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
