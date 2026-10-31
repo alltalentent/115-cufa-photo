@@ -1,0 +1,51 @@
+<!doctype html>
+<html><head><base target="_top"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font:16px system-ui,sans-serif;background:#20242a;color:#f6f4ef;margin:0}header{padding:18px 24px;border-bottom:1px solid #515a66}main{padding:20px;max-width:1200px;margin:auto}nav{display:flex;gap:8px;flex-wrap:wrap}button{background:#39434e;color:#fff;border:1px solid #697584;border-radius:8px;padding:11px;cursor:pointer}button:disabled{opacity:.4}section{padding:18px;margin-top:16px;background:#2b323a;border-radius:12px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border-bottom:1px solid #48515c}.small{color:#b8c1ca;font-size:13px}.big{font-size:clamp(34px,7vw,90px);font-weight:750}.slate{text-align:center;padding:50px 15px;background:#20242a}.error{color:#ffba9e}input{padding:12px;font:inherit;border-radius:8px;max-width:100%}
+</style></head><body>
+<header><strong>CUFA PHOTO CONTROL</strong> <span class="small">2026.11.03 · A104</span></header>
+<main><nav><button onclick="tab('control')">總控台</button><button onclick="tab('checkin')">報到區</button><button onclick="tab('queue')">叫號畫面</button><button onclick="tab('slate')">電子試鏡單</button><button onclick="load()">重新整理</button></nav><p id="message" class="small">讀取中…</p><section id="view"></section></main>
+<script>
+let data={people:[],tasks:[],live:{}},page='control';
+function el(tag,text,cls){const x=document.createElement(tag);x.textContent=text;if(cls)x.className=cls;return x}
+function btn(text,fn){const x=el('button',text);x.onclick=fn;return x}
+function info(t){document.getElementById('message').textContent=t}
+function fail(e){info('操作失敗：'+(e.message||e))}
+function api(name,args,done){google.script.run.withSuccessHandler(x=>{info('已更新');if(done)done(x);load()}).withFailureHandler(fail)[name](...args)}
+function load(){google.script.run.withSuccessHandler(x=>{data=x;info('資料已載入');render()}).withFailureHandler(fail).getDashboard()}
+function tab(t){page=t;render()}
+function render(){
+ const root=document.getElementById('view');root.replaceChildren();
+ const people=data.people||[],tasks=data.tasks||[],live=data.live||{};
+ if(page==='slate'){
+  const p=people.find(x=>x.personId===live.slatePersonId);
+  const s=el('div','', 'slate');s.append(el('div','DIGITAL SLATE · CUFA PHOTO CONTROL','small'));
+  s.append(el('div',p?p.studentId||'—':'等待開始拍攝','big'));
+  if(p){s.append(el('div',p.name,'big'),el('div',p.class+' · '+p.queueNo+' · '+p.shootTypes,'small'),el('div','身高 '+(p.heightCm||'—')+' cm · 體重 '+(p.weightKg||'—')+' kg · 電話 '+(p.phone||'—'),'small'))}
+  root.append(s);return;
+ }
+ if(page==='queue'){
+  const p=people.find(x=>x.personId===live.calledPersonId);
+  root.append(el('div','NOW CALLING','small'),el('div',p?p.name:'尚未叫號','big'),el('div',p?p.queueNo:'','big'));return;
+ }
+ if(page==='control'){
+  root.append(el('h2','總控台'),el('p','目前拍攝：'+(people.find(x=>x.personId===live.activePersonId)?.name||'尚無')));
+  people.filter(x=>x.queueNo).forEach(p=>{
+   const row=el('div','', 'row');row.append(el('span',p.queueNo+' · '+p.name+' · '+p.shootTypes));
+   const controls=el('div');controls.append(btn('叫號',()=>api('callPerson',[p.personId])),btn('開始拍攝',()=>api('startShoot',[p.personId])));
+   tasks.filter(t=>t.personId===p.personId).forEach(t=>controls.append(btn('完成 '+t.shootType,()=>api('completeShoot',[t.taskId]))));
+   row.append(controls);root.append(row)
+  });return;
+ }
+ root.append(el('h2','報到區'));
+ const search=el('input');search.placeholder='搜尋姓名或學號';root.append(search);
+ const list=el('div');root.append(list);
+ function draw(){list.replaceChildren();people.filter(p=>[p.name,p.studentId,p.class].join(' ').includes(search.value)).forEach(p=>{
+  const row=el('div','', 'row');row.append(el('span',p.name+' · '+p.class+' · '+(p.queueNo||'未報到')));
+  if(!p.queueNo)row.append(btn('確認同意並報到',()=>{if(confirm('已核對本人資料與肖像使用同意？'))api('checkIn',[p.personId,'已確認'])}));
+  list.append(row)
+ })}
+ search.oninput=draw;draw();
+}
+load();setInterval(()=>{if(page==='queue'||page==='slate')load()},5000);
+</script></body></html>
