@@ -147,10 +147,10 @@ function doGet() {
 }
 
 /**
- * Cross-origin GitHub Pages API. Deploy web app "Execute as me / Anyone".
- * Every operation validates a Google ID token and Users allowlist SERVER SIDE.
- * Requires script property GOOGLE_CLIENT_ID matching the public frontend OAuth client.
- * WARNING: Test Google Apps Script redirect/CORS behavior before production.
+ * GitHub Pages JSON API.
+ * Deploy Apps Script with access appropriate to the production environment.
+ * All dashboard reads and writes validate ADMIN_PASSWORD in Script Properties.
+ * The frontend uses text/plain POST to avoid browser preflight requests.
  */
 function apiUser_(password) {
   const expected=PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD');
