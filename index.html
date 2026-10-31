@@ -25,10 +25,13 @@ document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>page(b.dataset
 function setup(){
  if(!cfg.appsScriptUrl){message('尚未設定 Apps Script 網址',true);return}
  $('auth').replaceChildren();
- $('view').replaceChildren(make('h2','CUFA PHOTO CONTROL'),make('p','請選擇工作畫面'));
- $('nav').hidden=false;
- message('操作介面已就緒');
+ const field=make('input');field.type='password';field.placeholder='管理密碼';field.autocomplete='current-password';field.setAttribute('aria-label','管理密碼');
+ const login=button('登入',async()=>{state.password=field.value;field.value='';try{await request('',{action:'checkAdminPassword'});$('auth').replaceChildren(button('登出',()=>{state.password=null;$('nav').hidden=true;$('view').replaceChildren(make('h2','已登出'));setup()}));$('nav').hidden=false;await load()}catch(e){state.password=null;message(e.message,true)}});
+ field.onkeydown=e=>{if(e.key==='Enter')login.click()};
+ $('auth').append(field,login);
+ $('view').replaceChildren(make('h2','工作人員登入'),make('p','請輸入管理密碼'));
+ message('請輸入管理密碼');
 }
 
-setup();setInterval(()=>{if(['queue','slate'].includes(state.page)&&state.password)load()},5000);
+setup();setInterval(()=>{if(state.password&&['queue','slate'].includes(state.page))load()},5000);
 </script></body></html>
