@@ -2,15 +2,27 @@
  * Deploy: Execute as owner, access Anyone; ALL data methods require ADMIN_PASSWORD.
  * Change password to a strong unique value in Script Properties before opening access.
  */
-const CUFA_VERSION='2026.11-github-full';
+const CUFA_VERSION='2026.11-github-api-only';
 const TAB={people:'拍攝學生名單',schedule:'拍攝流程',tasks:'ShootTasks',checkins:'CheckIns',live:'LiveControl',logs:'ActivityLogs'};
-function doGet(){return HtmlService.createHtmlOutputFromFile('Index').setTitle('CUFA PHOTO CONTROL').addMetaTag('viewport','width=device-width,initial-scale=1')}
+function doGet(){return jsonResponse_({ok:true,app:'CUFA PHOTO CONTROL',version:CUFA_VERSION,status:'api-online',message:'Frontend is hosted on GitHub Pages'})}
 function auth_(password){
  const expected=PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD');
  if(!expected||typeof password!=='string'||password.length<1||password!==expected)throw Error('管理密碼錯誤或尚未設定');
  return '管理員';
 }
-function sh_(key){const ss=SpreadsheetApp.getActiveSpreadsheet();if(!ss)throw Error('找不到綁定的試算表');const sh=ss.getSheetByName(TAB[key]);if(!sh)throw Error('缺少工作表 '+TAB[key]);return sh}
+function spreadsheet_(){
+ const id=PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+ if(id)return SpreadsheetApp.openById(String(id).trim());
+ const ss=SpreadsheetApp.getActiveSpreadsheet();
+ if(!ss)throw Error('找不到試算表：請在「指令碼屬性」設定 SPREADSHEET_ID 為 Google Sheets 網址中的 ID');
+ return ss;
+}
+function sh_(key){
+ const ss=spreadsheet_();
+ const sh=ss.getSheetByName(TAB[key]);
+ if(!sh)throw Error('缺少工作表：'+TAB[key]);
+ return sh;
+}
 function rows_(key){
  const sh=sh_(key),last=sh.getLastRow(),cols=sh.getLastColumn();
  if(last<1||cols<1)return [];
