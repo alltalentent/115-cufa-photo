@@ -24,7 +24,7 @@ jobs:
       - name: Prepare public frontend only
         run: |
           mkdir -p public
-          cp index.html admin.html pickup.html public/
+          cp index.html config.js public/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public
