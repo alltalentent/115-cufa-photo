@@ -13,4 +13,5 @@ test('Call action does not change slate',()=>{const branch=backend.slice(backend
 test('Public static code contains no student data or secret',()=>{assert.doesNotMatch(frontend,/1nq1d8fEzDIfY4othTMXa79tsXy6OsICzjAlN5-K9UEQ/);assert.doesNotMatch(config,/ADMIN_PASSWORD|1nq1d8fEzDIfY4othTMXa79tsXy6OsICzjAlN5-K9UEQ/)});
 test('Deployment only publishes frontend files',()=>{assert.match(workflow,/cp index\.html config\.js public\//)});
 
-test('Proxy is required and uses explicit allowed origin',()=>{assert.match(frontend,/CUFA_CONFIG\?\.proxyUrl/);assert.match(proxy,/Access-Control-Allow-Origin/);assert.match(proxy,/redirect:'follow'/);assert.match(proxy,/Origin not allowed/)});
+
+test('Front end uses the uniform-style direct Apps Script endpoint',()=>{assert.match(frontend,/CUFA_CONFIG\?\.appsScriptUrl/);assert.doesNotMatch(frontend,/CUFA_CONFIG\?\.proxyUrl/)});
