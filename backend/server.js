@@ -25,11 +25,19 @@ async function setLive(key,value,operator){const t=await withName(TAB.live);cons
 app.post('/api/action',async(req,res,next)=>{try{const {action,personId,taskId,status,notes,checkedItems,consentStatus}=req.body||{};if(!['checkIn','call','start','finish','task'].includes(action))return res.status(400).json({error:'Invalid action'});if(action==='checkIn'&&consentStatus!=='已確認')return res.status(400).json({error:'Consent verification required'});const people=await withName(TAB.people),p=people.records.find(x=>x.personId===personId);
 if(action!=='finish'&&action!=='task'&&!p)return res.status(404).json({error:'Person not found'});
 if(action==='checkIn'){
-  const ref=db.collection('cufa-control').doc('checkin-lock');
-  const result=await db.runTransaction(async tx=>{const snap=await tx.get(ref);const next=(snap.exists?snap.data().next:1)||1;tx.set(ref,{next:next+1},{merge:true});return next});
-  // Queue allocation is atomic; failed Sheets writes must be reconciled by admin before production use.
   if(p.queueNo)return res.json({queueNo:p.queueNo,alreadyCheckedIn:true});
-  const q='A'+String(result).padStart(2,'0');
+  const currentMax=Math.max(0,...people.records.map(x=>Number(String(x.queueNo||'').replace(/^A/,''))).filter(Number.isFinite));
+  const ref=db.collection('cufa-control').doc('checkin-sequence');
+  const personRef=db.collection('cufa-checkins').doc(personId);
+  const q=await db.runTransaction(async tx=>{
+    const [seq,existing]=await Promise.all([tx.get(ref),tx.get(personRef)]);
+    if(existing.exists)return existing.data().queueNo;
+    const next=Math.max(currentMax+1,(seq.exists?seq.data().next:1)||1);
+    const assigned='A'+String(next).padStart(2,'0');
+    tx.set(ref,{next:next+1},{merge:true});
+    tx.set(personRef,{queueNo:assigned,createdAt:new Date().toISOString()});
+    return assigned;
+  });
   await writeCell(people,p.__row,'queueNo',q);await writeCell(people,p.__row,'checkInStatus','已報到');
   await append(TAB.checkins,[personId,q,new Date().toISOString(),req.user.email,consentStatus]);await audit(req.user,'CHECK_IN',personId,{queueNo:q});return res.json({queueNo:q});
 }
