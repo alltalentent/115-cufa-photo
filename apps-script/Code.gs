@@ -2,7 +2,7 @@
  * Deploy: Execute as owner, access Anyone; ALL data methods require ADMIN_PASSWORD.
  * Change password to a strong unique value in Script Properties before opening access.
  */
-const CUFA_VERSION='2026.11-full';
+const CUFA_VERSION='2026.11-github-full';
 const TAB={people:'拍攝學生名單',schedule:'拍攝流程',tasks:'ShootTasks',checkins:'CheckIns',live:'LiveControl',logs:'ActivityLogs'};
 function doGet(){return HtmlService.createHtmlOutputFromFile('Index').setTitle('CUFA PHOTO CONTROL').addMetaTag('viewport','width=device-width,initial-scale=1')}
 function auth_(password){
@@ -87,4 +87,25 @@ function apiAction(password,request){
   log_(action,id,{taskId:request.taskId||'',status:request.status||''});
   return {ok:true,action,updatedAt:stamp_()};
  }finally{lock.releaseLock()}
+}
+
+/** Matches the working CUFA uniform website API contract:
+ * POST text/plain;charset=utf-8, JSON {action,...}, JSON response.
+ * The web app must execute as the spreadsheet owner.
+ */
+function jsonResponse_(payload){
+ return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
+}
+function doPost(e){
+ try{
+  if(!e||!e.postData||!e.postData.contents)throw Error('請提供 JSON POST 資料');
+  const body=JSON.parse(e.postData.contents);
+  const action=String(body.action||'');
+  if(action==='getDashboard')return jsonResponse_({ok:true,data:getDashboard(body.password)});
+  if(action==='apiAction')return jsonResponse_({ok:true,data:apiAction(body.password,body.request)});
+  throw Error('未知 API 操作');
+ }catch(error){
+  console.error('CUFA API:',error);
+  return jsonResponse_({ok:false,error:String(error.message||error)});
+ }
 }
