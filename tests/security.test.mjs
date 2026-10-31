@@ -9,5 +9,5 @@ test('frontend requires login before fetching',()=>assert.match(frontend,/if\(!s
 test('backend verifies Google ID token audience',()=>assert.match(backend,/verifyIdToken\(\{idToken:token,audience:process\.env\.GOOGLE_CLIENT_ID\}\)/));
 test('backend enforces staff allowlist',()=>assert.match(backend,/Staff access required/));
 test('call action does not update slate',()=>{const branch=backend.slice(backend.indexOf("if(action==='call'||action==='start')"),backend.indexOf("if(action==='finish')"));assert.match(branch,/action==='call'/);assert.match(branch,/slatePersonId/);});
-test('Pages workflow publishes only public directory',()=>{assert.match(workflow,/path: public/);assert.doesNotMatch(workflow,/path: \./);});
+test('Pages workflow publishes only public directory',()=>{assert.match(workflow,/path: public/);assert.doesNotMatch(workflow,/path: \\./);});
 test('private student data is not committed into static configuration',()=>{const config=readFileSync(new URL('../config.js',import.meta.url),'utf8');assert.doesNotMatch(config,/steven870103|1nq1d8fEzDIfY4othTMXa79tsXy6OsICzjAlN5-K9UEQ/);});
