@@ -95,6 +95,55 @@ function completeShoot(taskId) {
   log_(a, 'COMPLETE', task.personId, { taskId });
   return { taskId, status: '已完成' };
 }
+/**
+ * Non-destructive workflow simulation.
+ * Reads live records but never writes to Students, tasks, live, logs or check-ins.
+ * Use this before testing the real check-in workflow.
+ */
+function runSafeWorkflowTest() {
+  const a = requireStaff_();
+  const p = table_(SHEETS.people);
+  const t = table_(SHEETS.tasks);
+  const live = table_(SHEETS.live);
+  const checkins = table_(SHEETS.checkins);
+  const problems = [];
+  const personIds = new Set();
+  p.records.filter(x => x.personId).forEach(x => {
+    if (personIds.has(x.personId)) problems.push('重複 personId: ' + x.personId);
+    personIds.add(x.personId);
+  });
+  t.records.filter(x => x.taskId).forEach(x => {
+    if (!personIds.has(x.personId)) problems.push('拍攝任務找不到人員: ' + x.taskId);
+  });
+  const queueNumbers = p.records.map(x => x.queueNo).filter(Boolean);
+  if (new Set(queueNumbers).size !== queueNumbers.length) problems.push('重複報到號碼');
+  const nextNumber = 'A' + String(Math.max(0, ...queueNumbers.map(x => Number(String(x).replace(/^A/, ''))).filter(Number.isFinite)) + 1).padStart(2, '0');
+  const candidate = p.records.find(x => x.personId && !x.queueNo);
+  if (!candidate) problems.push('沒有未報到人員可供模擬');
+  const candidateTasks = candidate ? t.records.filter(x => x.personId === candidate.personId) : [];
+  if (candidate && !candidateTasks.length) problems.push('模擬人員沒有拍攝任務');
+  const requiredPeople = ['personId','name','class','queueNo','checkInStatus'];
+  const requiredTasks = ['taskId','personId','shootType','status'];
+  const requiredLive = ['key','value','updatedAt','operator'];
+  const requiredCheckins = ['personId','queueNo','checkedAt','operator','consentStatus'];
+  [[p,requiredPeople],[t,requiredTasks],[live,requiredLive],[checkins,requiredCheckins]].forEach(([table,fields]) => fields.forEach(k => {
+    if (!table.keys.includes(k)) problems.push('缺少欄位: ' + table.sheet.getName() + '.' + k);
+  }));
+  const simulated = candidate ? {
+    checkIn: { personId: candidate.personId, queueNo: nextNumber, status: '已報到' },
+    call: { calledPersonId: candidate.personId, slateUnchanged: true },
+    start: { activePersonId: candidate.personId, slatePersonId: candidate.personId },
+    complete: { taskIds: candidateTasks.map(x => x.taskId), slateRemains: candidate.personId }
+  } : null;
+  return {
+    ok: problems.length === 0, mode: 'READ_ONLY_SIMULATION', actor: a.email,
+    peopleCount: p.records.filter(x => x.personId).length,
+    taskCount: t.records.filter(x => x.taskId).length,
+    existingCheckIns: checkins.records.filter(x => x.personId).length,
+    simulated, problems,
+    note: '沒有寫入任何試算表資料，報到號碼僅為模擬預測'
+  };
+}
 function doGet() {
   requireStaff_();
   return HtmlService.createHtmlOutputFromFile('Index').setTitle('CUFA PHOTO CONTROL');
