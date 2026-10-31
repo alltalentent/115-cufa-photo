@@ -7,7 +7,27 @@ const cfg=window.CUFA_CONFIG||{},state={password:null,people:[],tasks:[],schedul
 const $=id=>document.getElementById(id),make=(tag,text,cls)=>{const n=document.createElement(tag);n.textContent=text??'';if(cls)n.className=cls;return n};
 function message(s,error=false){$('message').textContent=s;$('message').className=error?'error':'small'}
 function button(text,handler){const b=make('button',text);b.onclick=handler;return b}
-async function request(path,body){if(!state.password)throw Error('請先登入');const payload={password:state.password,...(body||{action:'dashboard'})};let r;try{r=await fetch(cfg.appsScriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),redirect:'follow',cache:'no-store'})}catch(e){throw Error('Apps Script 連線失敗（可能是跨網域限制、部署權限或網路問題）；請檢查瀏覽器 Console 與 /exec 部署。原始錯誤：'+e.message)}if(!r.ok)throw Error('Apps Script HTTP '+r.status);let response;try{response=await r.json()}catch(e){throw Error('Apps Script 回傳內容不是 JSON；請確認 /exec 指向最新版 doPost。')}if(!response.ok)throw Error(response.error||'API request rejected');return response.data}
+let apiSequence=0;
+function decodeWebSafe(value){const raw=atob(value.replace(/-/g,'+').replace(/_/g,'/'));const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));return JSON.parse(new TextDecoder().decode(bytes))}
+function request(path,body){
+ if(!state.password)return Promise.reject(Error('請先登入'));
+ if(!cfg.appsScriptUrl)return Promise.reject(Error('未設定 Apps Script 網址'));
+ const requestId='cufa-'+Date.now()+'-'+(++apiSequence);
+ const payload={password:state.password,...(body||{action:'dashboard'}),requestId};
+ return new Promise((resolve,reject)=>{
+  const frame=document.createElement('iframe');frame.name=requestId;frame.hidden=true;frame.title='CUFA API';
+  const form=document.createElement('form');form.method='POST';form.action=cfg.appsScriptUrl;form.target=requestId;form.hidden=true;
+  const input=document.createElement('input');input.name='payload';input.value=JSON.stringify(payload);form.append(input);
+  let finished=false;
+  const finish=(error,data)=>{if(finished)return;finished=true;clearTimeout(timer);window.removeEventListener('message',receive);form.remove();frame.remove();error?reject(error):resolve(data)};
+  const receive=e=>{if(!['https://script.google.com','https://script.googleusercontent.com'].includes(e.origin))return;
+   const msg=e.data;if(!msg||msg.source!=='cufa-apps-script'||typeof msg.encoded!=='string')return;
+   try{const response=decodeWebSafe(msg.encoded);if(response.requestId!==requestId)return;if(!response.result.ok)finish(Error(response.result.error||'API request rejected'));else finish(null,response.result.data)}catch(err){finish(Error('API 回傳資料無法解析：'+err.message))}
+  };
+  const timer=setTimeout(()=>finish(Error('Apps Script 回應逾時，請確認部署權限與最新 Code.gs')),25000);
+  window.addEventListener('message',receive);document.body.append(frame,form);form.submit();
+ });
+}
 
 let loading=false;async function load(){if(loading)return;loading=true;try{const x=await request('/api/dashboard');Object.assign(state,x);message('已同步資料');render()}catch(e){message(e.message,true)}finally{loading=false}}
 let writing=false;async function action(payload){if(writing)return;if(!confirm('確定執行此操作？將更新正式 Google Sheets。'))return;writing=true;try{await request('/api/action',payload);await load()}catch(e){message(e.message,true)}finally{writing=false}}
