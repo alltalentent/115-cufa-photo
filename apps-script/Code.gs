@@ -1,33 +1,29 @@
 /**
- * CUFA PHOTO CONTROL — Stage 1 connectivity diagnostic
- * Spreadsheet-bound Google Apps Script.
- * Does not read student records or modify any sheet.
- * Do not use this as the production API.
+ * CUFA PHOTO CONTROL — Stage 2: Apps Script hosted UI connectivity.
+ * Safe diagnostic only: no student records and no spreadsheet writes.
  */
-const CUFA_API_VERSION = 'rebuild-1';
-
+const CUFA_API_VERSION = 'rebuild-2';
 function json_(value) {
   return ContentService.createTextOutput(JSON.stringify(value))
     .setMimeType(ContentService.MimeType.JSON);
 }
-
 function doGet(e) {
-  return json_({ok:true,app:'CUFA PHOTO CONTROL',version:CUFA_API_VERSION,
-    status:'backend-online',message:'JSON endpoint is responding'});
+  if (e && e.parameter && e.parameter.format === 'json') {
+    return json_({ok:true,app:'CUFA PHOTO CONTROL',version:CUFA_API_VERSION,status:'backend-online'});
+  }
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('CUFA PHOTO CONTROL｜連線測試');
 }
-
+function ping() {
+  return {ok:true,app:'CUFA PHOTO CONTROL',version:CUFA_API_VERSION,
+    status:'script-run-online',message:'Apps Script UI and backend connected'};
+}
 function doPost(e) {
   try {
-    if (!e || !e.postData || !e.postData.contents) {
-      throw new Error('Missing JSON request body');
-    }
-    const body = JSON.parse(e.postData.contents);
-    if (body.action !== 'ping') {
-      return json_({ok:false,error:'Only ping is enabled during connectivity testing'});
-    }
-    return json_({ok:true,action:'ping',version:CUFA_API_VERSION,
-      echo:String(body.message || '').slice(0,100)});
-  } catch (error) {
+    const body=JSON.parse(e && e.postData && e.postData.contents || '{}');
+    if(body.action !== 'ping') throw new Error('Only ping enabled during diagnostic');
+    return json_({ok:true,action:'ping',version:CUFA_API_VERSION});
+  } catch(error) {
     return json_({ok:false,error:String(error.message || error)});
   }
 }
