@@ -145,3 +145,97 @@ function doGet() {
   requireStaff_();
   return HtmlService.createHtmlOutputFromFile('Index').setTitle('CUFA PHOTO CONTROL');
 }
+
+/**
+ * Cross-origin GitHub Pages API. Deploy web app "Execute as me / Anyone".
+ * Every operation validates a Google ID token and Users allowlist SERVER SIDE.
+ * Requires script property GOOGLE_CLIENT_ID matching the public frontend OAuth client.
+ * WARNING: Test Google Apps Script redirect/CORS behavior before production.
+ */
+function apiUser_(token) {
+  if (!token || typeof token !== 'string' || token.length > 8192) throw new Error('Missing login token');
+  const clientId = PropertiesService.getScriptProperties().getProperty('GOOGLE_CLIENT_ID');
+  if (!clientId) throw new Error('OAuth client not configured');
+  const response = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token), {muteHttpExceptions:true});
+  if (response.getResponseCode() !== 200) throw new Error('Invalid Google login');
+  const claims = JSON.parse(response.getContentText());
+  if (claims.aud !== clientId || claims.email_verified !== 'true' || !claims.email) throw new Error('Untrusted Google identity');
+  const email = String(claims.email).toLowerCase();
+  const user = table_(SHEETS.users).records.find(x=>String(x.email).toLowerCase()===email && String(x.enabled).toUpperCase()==='TRUE');
+  if (!user || !['管理員','admin','staff','工作人員'].includes(user.role)) throw new Error('Staff access required');
+  return {email,role:user.role};
+}
+function apiLog_(actor,action,id,details) {
+  table_(SHEETS.logs).sheet.appendRow([new Date(),actor.email,action,id||'',JSON.stringify(details||{})]);
+}
+function apiLive_(key,value,actor) {
+  const t=table_(SHEETS.live),r=t.records.find(x=>x.key===key);
+  if (r) {
+    writeField_(t,r.__row,'value',value);
+    writeField_(t,r.__row,'updatedAt',new Date());
+    writeField_(t,r.__row,'operator',actor.email);
+  } else t.sheet.appendRow([key,value,new Date(),actor.email]);
+}
+function apiDispatch_(actor,body) {
+  const action=body.action;
+  if (action==='dashboard') {
+    const people=table_(SHEETS.people).records.filter(x=>x.personId);
+    const tasks=table_(SHEETS.tasks).records.filter(x=>x.taskId);
+    const schedule=table_(SHEETS.schedule).records.filter(x=>x.slotId);
+    const live=table_(SHEETS.live).records;
+    return {people,tasks,schedule,live:Object.fromEntries(live.filter(x=>x.key).map(x=>[x.key,x.value]))};
+  }
+  if (!['checkIn','call','start','finish','task'].includes(action)) throw new Error('Unknown action');
+  const lock=LockService.getScriptLock();lock.waitLock(25000);
+  try {
+    const ptab=table_(SHEETS.people),p=ptab.records.find(x=>x.personId===body.personId);
+    if (action==='checkIn') {
+      if (!p) throw new Error('Person not found');
+      if (body.consentStatus!=='已確認') throw new Error('Consent verification required');
+      if (p.queueNo) return {queueNo:p.queueNo,alreadyCheckedIn:true};
+      const ch=table_(SHEETS.checkins);
+      const existing=ch.records.find(x=>x.personId===p.personId && x.queueNo);
+      const all=[...ptab.records,...ch.records];
+      const max=Math.max(0,...all.map(x=>Number(String(x.queueNo||'').replace(/^A/,''))).filter(x=>Number.isFinite(x)&&x>0));
+      const q=existing?existing.queueNo:'A'+String(max+1).padStart(2,'0');
+      writeField_(ptab,p.__row,'queueNo',q);
+      writeField_(ptab,p.__row,'checkInStatus','已報到');
+      if(!existing)ch.sheet.appendRow([p.personId,q,new Date(),actor.email,body.consentStatus]);
+      apiLog_(actor,'CHECK_IN',p.personId,{queueNo:q});
+      return {queueNo:q};
+    }
+    if (action==='call'||action==='start') {
+      if (!p || !p.queueNo) throw new Error('Not checked in');
+      if (action==='call') apiLive_('calledPersonId',p.personId,actor);
+      else {apiLive_('slatePersonId',p.personId,actor);apiLive_('activePersonId',p.personId,actor);}
+      apiLog_(actor,action.toUpperCase(),p.personId);
+      return {ok:true};
+    }
+    if (action==='finish') {
+      apiLive_('activePersonId','',actor);
+      apiLog_(actor,'FINISH','');
+      return {ok:true,slateRetained:true};
+    }
+    if (action==='task') {
+      if (!['待報到','待拍攝','拍攝中','已完成','需補拍','缺席'].includes(body.status)) throw new Error('Invalid status');
+      const t=table_(SHEETS.tasks),task=t.records.find(x=>x.taskId===body.taskId);
+      if (!task) throw new Error('Task not found');
+      writeField_(t,task.__row,'status',body.status);
+      writeField_(t,task.__row,'notes',String(body.notes||'').slice(0,2000));
+      writeField_(t,task.__row,'checkedItems',String(body.checkedItems||'').slice(0,1000));
+      apiLog_(actor,'TASK_STATUS',task.personId,{taskId:body.taskId,status:body.status});
+      return {ok:true};
+    }
+  } finally {lock.releaseLock();}
+}
+function doPost(e) {
+  try {
+    if (!e || !e.postData || e.postData.type.indexOf('text/plain')!==0) throw new Error('Invalid content type');
+    const body=JSON.parse(e.postData.contents);
+    const actor=apiUser_(body.idToken);
+    const result=apiDispatch_(actor,body);
+    return ContentService.createTextOutput(JSON.stringify({ok:true,data:result})).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err.message||err)})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
