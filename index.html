@@ -9,8 +9,8 @@ let password='',data=null,page='control',busy=false,filter='';
 const pages=[['control','總控台'],['checkin','現場報到'],['queue','叫號看板'],['slate','電子試鏡單'],['tasks','拍攝任務'],['schedule','拍攝流程']];
 function notice(s){$('notice').textContent=s||''}
 async function run(method,...args){
- const url=window.CUFA_CONFIG?.proxyUrl;
- if(!url)throw Error('跨網域轉接服務尚未啟用。請先部署 worker/proxy.js 並設定 config.js 的 proxyUrl，才能讀取 Google Sheets。');
+ const url=window.CUFA_CONFIG?.appsScriptUrl;
+ if(!url)throw Error('找不到 Apps Script API 網址設定');
  const payload=method==='getDashboard'?{action:'getDashboard',password:args[0]}:
                method==='apiAction'?{action:'apiAction',password:args[0],request:args[1]}:null;
  if(!payload)throw Error('未知操作 '+method);
